@@ -4,10 +4,15 @@ import cors from "cors";
 import pkg from "pg";
 import crypto from "crypto";
 import { createPgConfig } from "./pg-config.js";
+import { v2 as cloudinary } from "cloudinary";
+import multer from "multer";
 const { Pool } = pkg;
 
 // Debug: verificar qué DATABASE_URL se recibió
-console.log("🔍 DATABASE_URL recibida:", process.env.DATABASE_URL ? "SÍ configurada" : "❌ NO configurada");
+console.log(
+  "🔍 DATABASE_URL recibida:",
+  process.env.DATABASE_URL ? "SÍ configurada" : "❌ NO configurada",
+);
 console.log("🔍 NODE_ENV:", process.env.NODE_ENV || "no definido");
 console.log("🔍 PORT:", process.env.PORT || "usando default");
 
@@ -22,6 +27,12 @@ const PORT = Number(process.env.PORT || 5000);
 const HOST = process.env.HOST || "0.0.0.0";
 
 const app = express();
+cloudinary.config({
+  cloud_name: process.env.CLOUD_NAME,
+  api_key: process.env.API_KEY,
+  api_secret: process.env.API_SECRET,
+});
+const upload = multer({ dest: "tmp/" });
 app.use(cors());
 app.use(express.json());
 
@@ -36,7 +47,9 @@ function generarSalt() {
 }
 
 function hashPassword(password, salt) {
-  return crypto.pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 64, "sha512").toString("hex");
+  return crypto
+    .pbkdf2Sync(password, salt, PBKDF2_ITERATIONS, 64, "sha512")
+    .toString("hex");
 }
 
 function empaquetarPasswordHash(password) {
@@ -52,9 +65,12 @@ function validarPasswordHash(password, hashEmpaquetado) {
   const iter = Number(partes[1]);
   const salt = partes[2];
   const hashGuardado = partes[3];
-  if (!Number.isFinite(iter) || iter <= 0 || !salt || !hashGuardado) return false;
+  if (!Number.isFinite(iter) || iter <= 0 || !salt || !hashGuardado)
+    return false;
 
-  const hash = crypto.pbkdf2Sync(password, salt, iter, 64, "sha512").toString("hex");
+  const hash = crypto
+    .pbkdf2Sync(password, salt, iter, 64, "sha512")
+    .toString("hex");
   const a = Buffer.from(hash, "hex");
   const b = Buffer.from(hashGuardado, "hex");
   if (a.length !== b.length) return false;
@@ -149,9 +165,9 @@ function leerTokenAuth(token) {
 async function validarAuthSchema() {
   try {
     console.log("Validando esquema auth con timeout de 30s...");
-    
+
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout conectando a la BD")), 30000)
+      setTimeout(() => reject(new Error("Timeout conectando a la BD")), 30000),
     );
 
     await Promise.race([
@@ -165,7 +181,7 @@ async function validarAuthSchema() {
         FROM information_schema.columns
         WHERE table_schema = 'public'
           AND table_name = 'usuarios'
-      `
+      `,
     );
 
     const disponibles = new Set(columnas.rows.map((r) => r.column_name));
@@ -185,10 +201,14 @@ async function validarAuthSchema() {
       return;
     }
 
-    throw new Error("Falta columna de contraseña en usuarios (password_hash, contrasena o contraseña)");
+    throw new Error(
+      "Falta columna de contraseña en usuarios (password_hash, contrasena o contraseña)",
+    );
   } catch (error) {
     console.error("⚠ Error en validarAuthSchema:", error.message);
-    console.error("El servidor iniciará de todas formas, pero auth puede no funcionar");
+    console.error(
+      "El servidor iniciará de todas formas, pero auth puede no funcionar",
+    );
     PASSWORD_COLUMN_SQL = "password_hash"; // fallback
   }
 }
@@ -204,14 +224,17 @@ async function authDesdeToken(req) {
 
   const result = await pool.query(
     "SELECT id, username FROM usuarios WHERE id = $1 AND username = $2 LIMIT 1",
-    [payload.sub, payload.username]
+    [payload.sub, payload.username],
   );
 
   return result.rows[0] || null;
 }
 
 async function obtenerModoJuegoId(clave) {
-  const result = await pool.query("SELECT id, clave, nombre FROM modos_juego WHERE clave = $1 AND activo = TRUE LIMIT 1", [clave]);
+  const result = await pool.query(
+    "SELECT id, clave, nombre FROM modos_juego WHERE clave = $1 AND activo = TRUE LIMIT 1",
+    [clave],
+  );
   return result.rows[0] || null;
 }
 
@@ -265,7 +288,7 @@ async function obtenerODesbloquearPersonajeDiario(modoJuegoId, dia) {
      JOIN personajes p ON p.id = pd.personaje_id
      WHERE pd.modo_juego_id = $1 AND pd.dia = $2
      LIMIT 1`,
-    [modoJuegoId, dia]
+    [modoJuegoId, dia],
   );
 
   if (existe.rowCount > 0) return existe.rows[0];
@@ -280,7 +303,7 @@ async function obtenerODesbloquearPersonajeDiario(modoJuegoId, dia) {
     `INSERT INTO personaje_diario (dia, modo_juego_id, personaje_id)
      VALUES ($1, $2, $3)
      ON CONFLICT (dia, modo_juego_id) DO NOTHING`,
-    [dia, modoJuegoId, personaje.id]
+    [dia, modoJuegoId, personaje.id],
   );
 
   const creado = await pool.query(
@@ -289,13 +312,27 @@ async function obtenerODesbloquearPersonajeDiario(modoJuegoId, dia) {
      JOIN personajes p ON p.id = pd.personaje_id
      WHERE pd.modo_juego_id = $1 AND pd.dia = $2
      LIMIT 1`,
-    [modoJuegoId, dia]
+    [modoJuegoId, dia],
   );
 
   return creado.rows[0] || null;
 }
 
-async function registrarIntentoDiario({ userId, modoJuegoId, dia, personajeDiarioId, intentosUsados, pistasUsadas, completado, acertado, inicio, fin, tiempoMs, puntuacion, adivinanzas }) {
+async function registrarIntentoDiario({
+  userId,
+  modoJuegoId,
+  dia,
+  personajeDiarioId,
+  intentosUsados,
+  pistasUsadas,
+  completado,
+  acertado,
+  inicio,
+  fin,
+  tiempoMs,
+  puntuacion,
+  adivinanzas,
+}) {
   const result = await pool.query(
     `INSERT INTO intentos_diarios (
       usuario_id, modo_juego_id, personaje_diario_id, dia,
@@ -325,15 +362,20 @@ async function registrarIntentoDiario({ userId, modoJuegoId, dia, personajeDiari
       Boolean(acertado),
       inicio || null,
       fin || null,
-      tiempoMs === null || tiempoMs === undefined ? null : parseNumero(tiempoMs, null),
+      tiempoMs === null || tiempoMs === undefined
+        ? null
+        : parseNumero(tiempoMs, null),
       parseNumero(puntuacion, 0),
-    ]
+    ],
   );
 
   const intento = result.rows[0];
 
   if (Array.isArray(adivinanzas) && adivinanzas.length > 0) {
-    await pool.query("DELETE FROM adivinanzas_diarias WHERE intento_diario_id = $1", [intento.id]);
+    await pool.query(
+      "DELETE FROM adivinanzas_diarias WHERE intento_diario_id = $1",
+      [intento.id],
+    );
 
     for (const item of adivinanzas) {
       const personajeId = item?.personajeId ?? item?.personaje_id ?? item?.id;
@@ -342,7 +384,11 @@ async function registrarIntentoDiario({ userId, modoJuegoId, dia, personajeDiari
       await pool.query(
         `INSERT INTO adivinanzas_diarias (intento_diario_id, personaje_adivinado_id, es_correcta)
          VALUES ($1, $2, $3)`,
-        [intento.id, personajeId, Boolean(item?.esCorrecta ?? item?.es_correcta)]
+        [
+          intento.id,
+          personajeId,
+          Boolean(item?.esCorrecta ?? item?.es_correcta),
+        ],
       );
     }
   }
@@ -368,7 +414,7 @@ async function obtenerRankingDiario(modoClave, dia, limite = 10) {
        AND i.tiempo_ms IS NOT NULL
      ORDER BY i.tiempo_ms ASC, i.fin ASC, u.username ASC
      LIMIT $3`,
-    [modo.id, dia, maximo]
+    [modo.id, dia, maximo],
   );
 
   return {
@@ -387,39 +433,65 @@ async function obtenerRankingDiario(modoClave, dia, limite = 10) {
 
 app.post("/api/auth/register", async (req, res) => {
   try {
-    const username = String(req.body?.username || "").trim().toLowerCase();
-    const email = String(req.body?.email || "").trim().toLowerCase();
+    const username = String(req.body?.username || "")
+      .trim()
+      .toLowerCase();
+    const email = String(req.body?.email || "")
+      .trim()
+      .toLowerCase();
     const password = String(req.body?.password || "");
 
     if (!username || !email || !password) {
-      return res.status(400).json({ ok: false, error: "Usuario, email y contraseña son obligatorios" });
+      return res.status(400).json({
+        ok: false,
+        error: "Usuario, email y contraseña son obligatorios",
+      });
     }
     if (username.length < 3 || username.length > 24) {
-      return res.status(400).json({ ok: false, error: "El usuario debe tener entre 3 y 24 caracteres" });
+      return res.status(400).json({
+        ok: false,
+        error: "El usuario debe tener entre 3 y 24 caracteres",
+      });
     }
     if (!/^\S+@\S+\.\S+$/.test(email)) {
       return res.status(400).json({ ok: false, error: "Email no válido" });
     }
     if (password.length < 4) {
-      return res.status(400).json({ ok: false, error: "La contraseña debe tener al menos 4 caracteres" });
+      return res.status(400).json({
+        ok: false,
+        error: "La contraseña debe tener al menos 4 caracteres",
+      });
     }
 
-    const existe = await pool.query("SELECT id FROM usuarios WHERE username = $1 OR email = $2 LIMIT 1", [username, email]);
+    const existe = await pool.query(
+      "SELECT id FROM usuarios WHERE username = $1 OR email = $2 LIMIT 1",
+      [username, email],
+    );
     if (existe.rowCount > 0) {
-      return res.status(409).json({ ok: false, error: "Usuario o email ya existente" });
+      return res
+        .status(409)
+        .json({ ok: false, error: "Usuario o email ya existente" });
     }
 
     const passwordHash = empaquetarPasswordHash(password);
     const creado = await pool.query(
       `INSERT INTO usuarios (username, email, ${PASSWORD_COLUMN_SQL}, ultimo_login) VALUES ($1, $2, $3, NOW()) RETURNING id, username, email`,
-      [username, email, passwordHash]
+      [username, email, passwordHash],
     );
 
     const user = creado.rows[0];
     const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_HOURS * 60 * 60;
-    const token = crearTokenAuth({ sub: user.id, username: user.username, exp });
+    const token = crearTokenAuth({
+      sub: user.id,
+      username: user.username,
+      exp,
+    });
 
-    return res.status(201).json({ ok: true, user: { id: user.id, username: user.username, email: user.email }, token });
+    return res.status(201).json({
+      ok: true,
+      user: { id: user.id, username: user.username, email: user.email },
+      token,
+    });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
   }
@@ -427,34 +499,52 @@ app.post("/api/auth/register", async (req, res) => {
 
 app.post("/api/auth/login", async (req, res) => {
   try {
-    const username = String(req.body?.username || "").trim().toLowerCase();
+    const username = String(req.body?.username || "")
+      .trim()
+      .toLowerCase();
     const password = String(req.body?.password || "");
 
     if (!username || !password) {
-      return res.status(400).json({ ok: false, error: "Usuario y contraseña son obligatorios" });
+      return res
+        .status(400)
+        .json({ ok: false, error: "Usuario y contraseña son obligatorios" });
     }
 
     const result = await pool.query(
       `SELECT id, username, email, ${PASSWORD_COLUMN_SQL} AS password_hash FROM usuarios WHERE username = $1 OR email = $1 LIMIT 1`,
-      [username]
+      [username],
     );
 
     if (result.rowCount === 0) {
-      return res.status(401).json({ ok: false, error: "Usuario o contraseña incorrectos" });
+      return res
+        .status(401)
+        .json({ ok: false, error: "Usuario o contraseña incorrectos" });
     }
 
     const user = result.rows[0];
     const valida = validarPasswordHash(password, user.password_hash);
     if (!valida) {
-      return res.status(401).json({ ok: false, error: "Usuario o contraseña incorrectos" });
+      return res
+        .status(401)
+        .json({ ok: false, error: "Usuario o contraseña incorrectos" });
     }
 
-    await pool.query("UPDATE usuarios SET ultimo_login = NOW() WHERE id = $1", [user.id]);
+    await pool.query("UPDATE usuarios SET ultimo_login = NOW() WHERE id = $1", [
+      user.id,
+    ]);
 
     const exp = Math.floor(Date.now() / 1000) + TOKEN_TTL_HOURS * 60 * 60;
-    const token = crearTokenAuth({ sub: user.id, username: user.username, exp });
+    const token = crearTokenAuth({
+      sub: user.id,
+      username: user.username,
+      exp,
+    });
 
-    return res.json({ ok: true, user: { id: user.id, username: user.username, email: user.email }, token });
+    return res.json({
+      ok: true,
+      user: { id: user.id, username: user.username, email: user.email },
+      token,
+    });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
   }
@@ -509,7 +599,9 @@ app.get("/diagnostico", async (req, res) => {
       },
       base_datos: {
         database_url_configurada: Boolean(process.env.DATABASE_URL),
-        es_remota: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost"),
+        es_remota:
+          process.env.DATABASE_URL &&
+          !process.env.DATABASE_URL.includes("localhost"),
       },
       intentar_conexion: null,
       error: null,
@@ -519,7 +611,9 @@ app.get("/diagnostico", async (req, res) => {
     try {
       const result = await Promise.race([
         pool.query("SELECT NOW() as ahora, VERSION() as version"),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout de 15s excedido")), 15000)),
+        new Promise((_, rej) =>
+          setTimeout(() => rej(new Error("Timeout de 15s excedido")), 15000),
+        ),
       ]);
       diagnostico.intentar_conexion = {
         exito: true,
@@ -542,8 +636,8 @@ app.get("/diagnostico", async (req, res) => {
 
 app.get("/health", (req, res) => {
   // Health check sin conectar a la BD, solo verificar que el servidor está corriendo
-  res.json({ 
-    ok: true, 
+  res.json({
+    ok: true,
     status: "running",
     timestamp: new Date().toISOString(),
   });
@@ -560,7 +654,11 @@ app.get("/api/personajes", async (req, res) => {
 
 app.get("/api/diarios/estado", async (req, res) => {
   try {
-    const modoClave = String(req.query?.modo || req.query?.modoClave || "normal").trim().toLowerCase();
+    const modoClave = String(
+      req.query?.modo || req.query?.modoClave || "normal",
+    )
+      .trim()
+      .toLowerCase();
     const dia = obtenerFechaMadrid();
     let personaje = null;
     let intento = null;
@@ -579,7 +677,7 @@ app.get("/api/diarios/estado", async (req, res) => {
         if (user) {
           const intentoResult = await pool.query(
             `SELECT * FROM intentos_diarios WHERE usuario_id = $1 AND modo_juego_id = $2 AND dia = $3 LIMIT 1`,
-            [user.id, modo.id, dia]
+            [user.id, modo.id, dia],
           );
           intento = intentoResult.rows[0] || null;
         }
@@ -589,13 +687,20 @@ app.get("/api/diarios/estado", async (req, res) => {
     }
 
     if (!personaje) {
-      const fallbackPersonaje = await obtenerPersonajeDiarioFallback(modoClave, dia);
+      const fallbackPersonaje = await obtenerPersonajeDiarioFallback(
+        modoClave,
+        dia,
+      );
       if (fallbackPersonaje) {
         return res.json({
           ok: true,
           dia,
           modo: modo || { clave: modoClave, nombre: modoClave },
-          personaje: serializarPersonajeDiarioFallback(fallbackPersonaje, modoClave, dia),
+          personaje: serializarPersonajeDiarioFallback(
+            fallbackPersonaje,
+            modoClave,
+            dia,
+          ),
           intento,
           persistido: false,
           fallback: true,
@@ -623,14 +728,23 @@ app.get("/api/diarios/estado", async (req, res) => {
       fallback: !modo,
     });
   } catch (error) {
-    const modoClave = String(req.query?.modo || req.query?.modoClave || "normal").trim().toLowerCase();
+    const modoClave = String(
+      req.query?.modo || req.query?.modoClave || "normal",
+    )
+      .trim()
+      .toLowerCase();
     const dia = obtenerFechaMadrid();
-    const personaje = await obtenerPersonajeDiarioFallback(modoClave, dia).catch(() => null);
+    const personaje = await obtenerPersonajeDiarioFallback(
+      modoClave,
+      dia,
+    ).catch(() => null);
     return res.json({
       ok: true,
       dia,
       modo: { clave: modoClave, nombre: modoClave },
-      personaje: personaje ? serializarPersonajeDiarioFallback(personaje, modoClave, dia) : null,
+      personaje: personaje
+        ? serializarPersonajeDiarioFallback(personaje, modoClave, dia)
+        : null,
       intento: null,
       persistido: false,
       fallback: true,
@@ -646,19 +760,25 @@ app.post("/api/diarios/intentos", async (req, res) => {
       return res.status(401).json({ ok: false, error: "Sesion no valida" });
     }
 
-    const modoClave = String(req.body?.modo || req.body?.modoClave || "normal").trim().toLowerCase();
+    const modoClave = String(req.body?.modo || req.body?.modoClave || "normal")
+      .trim()
+      .toLowerCase();
     const dia = String(req.body?.dia || obtenerFechaMadrid()).slice(0, 10);
     try {
       const modo = await obtenerModoJuegoId(modoClave).catch(() => null);
       if (modo) {
-        const personajeDiario = await obtenerODesbloquearPersonajeDiario(modo.id, dia).catch(() => null);
+        const personajeDiario = await obtenerODesbloquearPersonajeDiario(
+          modo.id,
+          dia,
+        ).catch(() => null);
         if (personajeDiario) {
           const intento = await registrarIntentoDiario({
             userId: user.id,
             modoJuegoId: modo.id,
             dia,
             personajeDiarioId: personajeDiario.id,
-            intentosUsados: req.body?.intentosUsados ?? req.body?.intentos_usados,
+            intentosUsados:
+              req.body?.intentosUsados ?? req.body?.intentos_usados,
             pistasUsadas: req.body?.pistasUsadas ?? req.body?.pistas_usadas,
             completado: req.body?.completado,
             acertado: req.body?.acertado,
@@ -678,13 +798,22 @@ app.post("/api/diarios/intentos", async (req, res) => {
 
     return res.json({ ok: true, intento: null, persistido: false });
   } catch (error) {
-    return res.json({ ok: true, intento: null, persistido: false, warning: error.message });
+    return res.json({
+      ok: true,
+      intento: null,
+      persistido: false,
+      warning: error.message,
+    });
   }
 });
 
 app.get("/api/diarios/ranking", async (req, res) => {
   try {
-    const modoClave = String(req.query?.modo || req.query?.modoClave || "normal").trim().toLowerCase();
+    const modoClave = String(
+      req.query?.modo || req.query?.modoClave || "normal",
+    )
+      .trim()
+      .toLowerCase();
     const dia = String(req.query?.dia || obtenerFechaMadrid()).slice(0, 10);
     const limite = parseNumero(req.query?.limite, 10);
 
@@ -715,7 +844,11 @@ app.get("/api/diarios/ranking", async (req, res) => {
       fallback,
     });
   } catch (error) {
-    const modoClave = String(req.query?.modo || req.query?.modoClave || "normal").trim().toLowerCase();
+    const modoClave = String(
+      req.query?.modo || req.query?.modoClave || "normal",
+    )
+      .trim()
+      .toLowerCase();
     const dia = String(req.query?.dia || obtenerFechaMadrid()).slice(0, 10);
     return res.json({
       ok: true,
@@ -729,6 +862,18 @@ app.get("/api/diarios/ranking", async (req, res) => {
   }
 });
 
+app.post("/api/upload", upload.single("image"), async (req, res) => {
+  try {
+    const result = await cloudinary.uploader.upload(req.file.path);
+
+    return res.json({
+      ok: true,
+      url: result.secure_url,
+    });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
 // Start server immediately without waiting for schema validation
 const servidor = app.listen(PORT, HOST, () => {
   console.log(`✅ Servidor iniciado en http://${HOST}:${PORT}`);
@@ -750,7 +895,9 @@ servidor.on("error", (err) => {
 // Validate schema in background
 validarAuthSchema().catch((error) => {
   console.error("⚠️ Advertencia - Schema validation falló:", error.message);
-  console.error("   El servidor está corriendo pero algunas funciones pueden no funcionar");
+  console.error(
+    "   El servidor está corriendo pero algunas funciones pueden no funcionar",
+  );
 });
 
 // Manejo global de errores no capturados
@@ -762,4 +909,3 @@ process.on("uncaughtException", (error) => {
   console.error("❌ Excepción no capturada:", error);
   process.exit(1);
 });
-
