@@ -148,10 +148,10 @@ function leerTokenAuth(token) {
 
 async function validarAuthSchema() {
   try {
-    console.log("Validando esquema auth con timeout de 10s...");
+    console.log("Validando esquema auth con timeout de 30s...");
     
     const timeoutPromise = new Promise((_, reject) =>
-      setTimeout(() => reject(new Error("Timeout conectando a la BD")), 10000)
+      setTimeout(() => reject(new Error("Timeout conectando a la BD")), 30000)
     );
 
     await Promise.race([
@@ -515,15 +515,16 @@ app.get("/diagnostico", async (req, res) => {
       error: null,
     };
 
-    // Intentar una conexión simple
+    // Intentar una conexión simple con timeout más largo
     try {
       const result = await Promise.race([
-        pool.query("SELECT NOW() as ahora"),
-        new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 5000)),
+        pool.query("SELECT NOW() as ahora, VERSION() as version"),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout de 15s excedido")), 15000)),
       ]);
       diagnostico.intentar_conexion = {
         exito: true,
         hora_servidor: result.rows[0]?.ahora,
+        db_version: result.rows[0]?.version,
       };
     } catch (e) {
       diagnostico.intentar_conexion = {
@@ -540,7 +541,12 @@ app.get("/diagnostico", async (req, res) => {
 });
 
 app.get("/health", (req, res) => {
-  res.json({ ok: true, db: "ready" });
+  // Health check sin conectar a la BD, solo verificar que el servidor está corriendo
+  res.json({ 
+    ok: true, 
+    status: "running",
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get("/api/personajes", async (req, res) => {

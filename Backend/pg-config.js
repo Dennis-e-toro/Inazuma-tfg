@@ -17,12 +17,15 @@ export function createPgConfig() {
     console.log("✅ Conectando a BD remota (Neon)");
     return {
       connectionString: databaseUrl,
-      ssl: true,
-      // Aumentar timeouts
-      connectionTimeoutMillis: 30000,
-      idleTimeoutMillis: 30000,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+      // Aumentar timeouts para Railway/Neon que puede ser lento
+      connectionTimeoutMillis: 60000,
+      idleTimeoutMillis: 60000,
       max: 20,
-      statement_timeout: 30000,
+      statement_timeout: 60000,
+      application_name: "Inazuma-Backend",
     };
   }
 
