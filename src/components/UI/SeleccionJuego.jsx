@@ -226,9 +226,10 @@ export default function SeleccionJuego() {
         const vistas = new Set(["starter"]);
 
         for (const p of data) {
-          const src = normalizarRutaImagen(p?.sprite_url);
-          if (!src || vistas.has(src)) continue;
-          vistas.add(src);
+          const raw = normalizarRutaImagen(p?.sprite_url);
+          const src = raw ? assetUrl(raw) : raw;
+          if (!raw || vistas.has(raw)) continue;
+          vistas.add(raw);
 
           const saga = String(p?.saga || "base").toLowerCase();
           const club = String(p?.club || "general").toLowerCase();
