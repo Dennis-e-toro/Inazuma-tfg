@@ -10,11 +10,12 @@ const ATRIBUTOS_TABLERO = ["club", "elemento", "posicion", "saga"];
 
 function normalizarRutaImagen(url) {
   if (!url) return url;
-  return String(url)
+  const normalized = String(url)
     .replace(/^\/Personajes\//i, "/personajes/")
     .replace(/^\/Siluetas\//i, "/siluetas/")
     .replace(/^\/Clubes\//i, "/clubes/")
     .replace(/^\/saga\//i, "/Saga/");
+  return assetUrl(normalized);
 }
 
 function texto(v) {

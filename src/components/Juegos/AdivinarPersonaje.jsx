@@ -7,11 +7,12 @@ const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 
 function normalizarRutaImagen(url) {
   if (!url) return url;
-  return String(url)
+  const normalized = String(url)
     .replace(/^\/Personajes\//i, "/personajes/")
     .replace(/^\/Siluetas\//i, "/siluetas/")
     .replace(/^\/Clubes\//i, "/clubes/")
     .replace(/^\/saga\//i, "/Saga/");
+  return assetUrl(normalized);
 }
 
 function texto(v) {
