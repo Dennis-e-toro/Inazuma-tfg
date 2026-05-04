@@ -8,7 +8,7 @@ export function createPgConfig() {
   if (isRemoteDatabaseUrl(databaseUrl)) {
     return {
       connectionString: databaseUrl,
-      ssl: { rejectUnauthorized: false },
+      ssl: true,
     };
   }
 
