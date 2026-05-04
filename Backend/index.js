@@ -677,6 +677,14 @@ app.get("/api/diarios/ranking", async (req, res) => {
   }
 });
 
-validarAuthSchema().then(() => {
-  app.listen(PORT, HOST, () => console.log(`Servidor en http://${HOST}:${PORT}`));
+// Start server immediately without waiting for schema validation
+app.listen(PORT, HOST, () => {
+  console.log(`Servidor en http://${HOST}:${PORT}`);
+  console.log("Validando esquema en background...");
 });
+
+// Validate schema in background
+validarAuthSchema().catch((error) => {
+  console.error("⚠ Error en validarAuthSchema (no es crítico):", error.message);
+});
+
