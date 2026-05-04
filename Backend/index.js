@@ -6,7 +6,17 @@ import crypto from "crypto";
 import { createPgConfig } from "./pg-config.js";
 const { Pool } = pkg;
 
+// Debug: verificar qué DATABASE_URL se recibió
+console.log("🔍 DATABASE_URL recibida:", process.env.DATABASE_URL ? "SÍ configurada" : "❌ NO configurada");
+console.log("🔍 NODE_ENV:", process.env.NODE_ENV || "no definido");
+console.log("🔍 PORT:", process.env.PORT || "usando default");
+
 const pool = new Pool(createPgConfig());
+
+// Evento de error del Pool para diagnosticar problemas
+pool.on("error", (err) => {
+  console.error("❌ Error CRÍTICO en Pool:", err.message);
+});
 
 const PORT = Number(process.env.PORT || 5000);
 const HOST = process.env.HOST || "0.0.0.0";
@@ -480,12 +490,53 @@ app.get("/", (req, res) => {
       "/api/diarios/estado",
       "/api/diarios/intentos",
       "/health",
+      "/diagnostico",
       "/api/auth/register",
       "/api/auth/login",
       "/api/auth/me",
       "/api/auth/logout",
     ],
   });
+});
+
+app.get("/diagnostico", async (req, res) => {
+  try {
+    const diagnostico = {
+      servidor: {
+        puerto: PORT,
+        host: HOST,
+        node_env: process.env.NODE_ENV || "no definido",
+      },
+      base_datos: {
+        database_url_configurada: Boolean(process.env.DATABASE_URL),
+        es_remota: process.env.DATABASE_URL && !process.env.DATABASE_URL.includes("localhost"),
+      },
+      intentar_conexion: null,
+      error: null,
+    };
+
+    // Intentar una conexión simple
+    try {
+      const result = await Promise.race([
+        pool.query("SELECT NOW() as ahora"),
+        new Promise((_, rej) => setTimeout(() => rej(new Error("Timeout")), 5000)),
+      ]);
+      diagnostico.intentar_conexion = {
+        exito: true,
+        hora_servidor: result.rows[0]?.ahora,
+      };
+    } catch (e) {
+      diagnostico.intentar_conexion = {
+        exito: false,
+        error: e.message,
+      };
+      diagnostico.error = e.message;
+    }
+
+    return res.json(diagnostico);
+  } catch (error) {
+    return res.status(500).json({ error: error.message });
+  }
 });
 
 app.get("/health", (req, res) => {
@@ -673,13 +724,36 @@ app.get("/api/diarios/ranking", async (req, res) => {
 });
 
 // Start server immediately without waiting for schema validation
-app.listen(PORT, HOST, () => {
-  console.log(`Servidor en http://${HOST}:${PORT}`);
-  console.log("Validando esquema en background...");
+const servidor = app.listen(PORT, HOST, () => {
+  console.log(`✅ Servidor iniciado en http://${HOST}:${PORT}`);
+  console.log("🔄 Validando esquema en background...");
+});
+
+// Manejo de errores del servidor
+servidor.on("error", (err) => {
+  if (err.code === "EADDRINUSE") {
+    console.error(`❌ Puerto ${PORT} ya está en uso`);
+  } else if (err.code === "EACCES") {
+    console.error(`❌ Permisos insuficientes para usar puerto ${PORT}`);
+  } else {
+    console.error(`❌ Error del servidor:`, err.message);
+  }
+  process.exit(1);
 });
 
 // Validate schema in background
 validarAuthSchema().catch((error) => {
-  console.error("⚠ Error en validarAuthSchema (no es crítico):", error.message);
+  console.error("⚠️ Advertencia - Schema validation falló:", error.message);
+  console.error("   El servidor está corriendo pero algunas funciones pueden no funcionar");
+});
+
+// Manejo global de errores no capturados
+process.on("unhandledRejection", (reason, promise) => {
+  console.error("❌ Promesa rechazada no manejada:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+  console.error("❌ Excepción no capturada:", error);
+  process.exit(1);
 });
 
