@@ -137,32 +137,50 @@ function leerTokenAuth(token) {
 }
 
 async function validarAuthSchema() {
-  await pool.query("SELECT id, username, email FROM usuarios LIMIT 1");
+  try {
+    console.log("Validando esquema auth con timeout de 10s...");
+    
+    const timeoutPromise = new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Timeout conectando a la BD")), 10000)
+    );
 
-  const columnas = await pool.query(
-    `
-      SELECT column_name
-      FROM information_schema.columns
-      WHERE table_schema = 'public'
-        AND table_name = 'usuarios'
-    `
-  );
+    await Promise.race([
+      pool.query("SELECT id, username, email FROM usuarios LIMIT 1"),
+      timeoutPromise,
+    ]);
 
-  const disponibles = new Set(columnas.rows.map((r) => r.column_name));
-  if (disponibles.has("password_hash")) {
-    PASSWORD_COLUMN_SQL = "password_hash";
-    return;
-  }
-  if (disponibles.has("contrasena")) {
-    PASSWORD_COLUMN_SQL = "contrasena";
-    return;
-  }
-  if (disponibles.has("contraseña")) {
-    PASSWORD_COLUMN_SQL = '"contraseña"';
-    return;
-  }
+    const columnas = await pool.query(
+      `
+        SELECT column_name
+        FROM information_schema.columns
+        WHERE table_schema = 'public'
+          AND table_name = 'usuarios'
+      `
+    );
 
-  throw new Error("Falta columna de contraseña en usuarios (password_hash, contrasena o contraseña)");
+    const disponibles = new Set(columnas.rows.map((r) => r.column_name));
+    if (disponibles.has("password_hash")) {
+      PASSWORD_COLUMN_SQL = "password_hash";
+      console.log("✓ Schema validado: password_hash");
+      return;
+    }
+    if (disponibles.has("contrasena")) {
+      PASSWORD_COLUMN_SQL = "contrasena";
+      console.log("✓ Schema validado: contrasena");
+      return;
+    }
+    if (disponibles.has("contraseña")) {
+      PASSWORD_COLUMN_SQL = '"contraseña"';
+      console.log("✓ Schema validado: contraseña");
+      return;
+    }
+
+    throw new Error("Falta columna de contraseña en usuarios (password_hash, contrasena o contraseña)");
+  } catch (error) {
+    console.error("⚠ Error en validarAuthSchema:", error.message);
+    console.error("El servidor iniciará de todas formas, pero auth puede no funcionar");
+    PASSWORD_COLUMN_SQL = "password_hash"; // fallback
+  }
 }
 
 async function authDesdeToken(req) {
@@ -659,11 +677,6 @@ app.get("/api/diarios/ranking", async (req, res) => {
   }
 });
 
-validarAuthSchema()
-  .then(() => {
-    app.listen(PORT, HOST, () => console.log(`Servidor en http://${HOST}:${PORT}`));
-  })
-  .catch((error) => {
-    console.error("No se pudo validar esquema auth en backend:", error.message);
-    process.exit(1);
-  });
+validarAuthSchema().then(() => {
+  app.listen(PORT, HOST, () => console.log(`Servidor en http://${HOST}:${PORT}`));
+});
