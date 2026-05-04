@@ -308,7 +308,7 @@ function esEstadoResolubleSinRepetir(tablero, celdas, intentoExtra = null) {
   return backtrackingAsignacion(pendientes, tablero.mapaCruces, usados);
 }
 
-export default function AdivinarCuadricula({ onDailyComplete }) {
+export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = false }) {
   const [personajes, setPersonajes] = useState([]);
   const [tablero, setTablero] = useState(null);
   const [celdas, setCeldas] = useState({});
@@ -416,6 +416,11 @@ export default function AdivinarCuadricula({ onDailyComplete }) {
         setCargando(false);
       });
   }, [hoyIso]);
+
+  useEffect(() => {
+    if (!bloqueadoDiario) return;
+    setMensaje("Ya completaste la cuadricula diaria de hoy. Vuelve mañana.");
+  }, [bloqueadoDiario]);
 
   const usados = useMemo(
     () =>
@@ -561,6 +566,7 @@ export default function AdivinarCuadricula({ onDailyComplete }) {
   };
 
   const ganado = aciertos >= GRID_SIZE * GRID_SIZE;
+  const juegoBloqueado = bloqueadoDiario || ganado;
 
   useEffect(() => {
     if (!ganado) return;
@@ -604,10 +610,14 @@ export default function AdivinarCuadricula({ onDailyComplete }) {
         <h2>Cuadricula 3x3</h2>
         <p className="acg-subtitle">Pulsa una casilla y adivina el jugador correcto.</p>
 
+        {bloqueadoDiario && !ganado && (
+          <p className="acg-message">Ya completaste la cuadricula diaria de hoy. Vuelve mañana.</p>
+        )}
+
         <div className="acg-score">
           <span>Aciertos: {aciertos}/9</span>
           <span>Fallos: {fallos}</span>
-          <button onClick={nuevaCuadricula}>Nuevo tablero</button>
+          <button onClick={nuevaCuadricula} disabled={juegoBloqueado}>Nuevo tablero</button>
         </div>
 
         <div className="acg-grid" role="grid" aria-label="Cuadricula de adivinanza">
@@ -658,6 +668,7 @@ export default function AdivinarCuadricula({ onDailyComplete }) {
                     key={k}
                     className={`acg-cell acg-${estado} ${esActiva ? "acg-active" : ""}`}
                     onClick={() => seleccionarCasilla(rowIdx, colIdx)}
+                      disabled={juegoBloqueado}
                   >
                     {estado === "ok" && personaje ? (
                       <>
@@ -701,9 +712,9 @@ export default function AdivinarCuadricula({ onDailyComplete }) {
                   else comprobarManual();
                 }
               }}
-              disabled={!activa || ganado}
+              disabled={!activa || juegoBloqueado}
             />
-            <button onClick={comprobarManual} disabled={!activa || ganado || !input.trim()}>
+            <button onClick={comprobarManual} disabled={!activa || juegoBloqueado || !input.trim()}>
               Comprobar
             </button>
           </div>

@@ -92,7 +92,7 @@ function calcularPuntuacion(intentosUsados, pistasUsadas, tiempoMs) {
   return Math.max(0, base - penalizacionIntentos - penalizacionPistas - penalizacionTiempo);
 }
 
-export default function AdivinarPersonaje({ onDailyComplete }) {
+export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = false }) {
   const [personajes, setPersonajes] = useState([]);
   const [objetivo, setObjetivo] = useState(null);
   const [input, setInput] = useState("");
@@ -201,7 +201,7 @@ export default function AdivinarPersonaje({ onDailyComplete }) {
             : null,
         });
 
-        const completadoHoy = Boolean(diario?.intento?.completado || diario?.intento?.acertado);
+        const completadoHoy = Boolean(diario?.intento?.completado || diario?.intento?.acertado || bloqueadoDiario);
 
         setObjetivo(diarioEncontrado);
         setBloqueadoHoy(completadoHoy);
@@ -218,6 +218,13 @@ export default function AdivinarPersonaje({ onDailyComplete }) {
         setCargando(false);
       });
   }, [hoyIso]);
+
+  useEffect(() => {
+    if (!bloqueadoDiario) return;
+    setBloqueadoHoy(true);
+    setAcertado(true);
+    setMensajeIntento("Ya completaste el personaje diario de hoy. Vuelve mañana.");
+  }, [bloqueadoDiario]);
 
   const nombresIntentados = useMemo(
     () => new Set(intentos.map((i) => texto(i.nombre))),

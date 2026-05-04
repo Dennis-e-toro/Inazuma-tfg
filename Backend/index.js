@@ -333,6 +333,19 @@ async function registrarIntentoDiario({
   puntuacion,
   adivinanzas,
 }) {
+  const existenteResult = await pool.query(
+    `SELECT id, usuario_id, modo_juego_id, personaje_diario_id, dia, intentos_usados, pistas_usados, completado, acertado, inicio, fin, tiempo_ms, puntuacion
+     FROM intentos_diarios
+     WHERE usuario_id = $1 AND modo_juego_id = $2 AND dia = $3
+     LIMIT 1`,
+    [userId, modoJuegoId, dia],
+  );
+
+  const existente = existenteResult.rows[0] || null;
+  if (existente?.completado && existente?.acertado) {
+    return existente;
+  }
+
   const result = await pool.query(
     `INSERT INTO intentos_diarios (
       usuario_id, modo_juego_id, personaje_diario_id, dia,

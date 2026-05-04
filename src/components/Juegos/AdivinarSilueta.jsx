@@ -162,7 +162,7 @@ function PistaIcono({ fuentes, alt }) {
   );
 }
 
-export default function AdivinarSilueta({ onDailyComplete }) {
+export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = false }) {
   const [personajes, setPersonajes] = useState([]);
   const [personajeActual, setPersonajeActual] = useState(null);
   const [input, setInput] = useState("");
@@ -239,7 +239,7 @@ export default function AdivinarSilueta({ onDailyComplete }) {
           null;
 
         setPersonajeActual(seleccionado);
-        const completadoHoy = Boolean(diario?.intento?.completado || diario?.intento?.acertado);
+        const completadoHoy = Boolean(diario?.intento?.completado || diario?.intento?.acertado || bloqueadoDiario);
         setBloqueadoHoy(completadoHoy);
         if (completadoHoy && seleccionado) {
           setResuelto(true);
@@ -248,6 +248,13 @@ export default function AdivinarSilueta({ onDailyComplete }) {
         inicioRef.current = Date.now();
       });
   }, [hoyIso]);
+
+  useEffect(() => {
+    if (!bloqueadoDiario) return;
+    setBloqueadoHoy(true);
+    setResuelto(true);
+    setFeedback("Ya completaste la silueta diaria de hoy. Vuelve mañana.");
+  }, [bloqueadoDiario]);
 
   const handleInputChange = (e) => {
     if (bloqueadoHoy || resuelto) return;

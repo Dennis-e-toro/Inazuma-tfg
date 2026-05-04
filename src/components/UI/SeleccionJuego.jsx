@@ -330,10 +330,12 @@ export default function SeleccionJuego() {
     };
 
     cargarRanking();
+    const intervalo = setInterval(cargarRanking, 15000);
 
     return () => {
       activo = false;
       controller.abort();
+      clearInterval(intervalo);
     };
   }, [rankingModoClave]);
 
@@ -753,7 +755,11 @@ export default function SeleccionJuego() {
         )}
 
         <div className="juego-contenedor">
-          <ComponenteJuego key={`${juegoActivo.id}-${instanciaJuego}`} onDailyComplete={registrarCompletadoDiario} />
+          <ComponenteJuego
+            key={`${juegoActivo.id}-${instanciaJuego}`}
+            onDailyComplete={registrarCompletadoDiario}
+            bloqueadoDiario={Boolean(completadosHoy[juegoActivo.id])}
+          />
         </div>
 
         <div className="info-container">
