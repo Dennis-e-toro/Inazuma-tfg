@@ -5,6 +5,7 @@ import AdivinarPersonaje from "../Juegos/AdivinarPersonaje";
 import AdivinarSilueta from "../Juegos/AdivinarSilueta";
 import AdivinarCuadricula from "../Juegos/AdivinarCuadricula";
 import { API_BASE } from "../../config";
+import { assetUrl } from "../../helpers/assetUrl";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 const AUTH_PROFILE_KEY = "inazudle.profile.v2";
@@ -630,7 +631,7 @@ export default function SeleccionJuego() {
         </button>
 
         <section className="brand-block">
-          <img src="/Saga/titulo.png" alt="INAZUMA ELEVENDLE" className="titulo-seleccion" />
+          <img src={assetUrl("/Saga/titulo.png")} alt="INAZUMA ELEVENDLE" className="titulo-seleccion" />
           <p className="hero-copy">Elige un modo, juega tu desafio diario y desbloquea nuevos avatares.</p>
         </section>
 

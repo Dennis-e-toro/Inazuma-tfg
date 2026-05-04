@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdivinarPersonaje.css";
 import { API_BASE } from "../../config";
+import { assetUrl } from "../../helpers/assetUrl";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 
@@ -27,7 +28,7 @@ function iconoSagaPorCodigo(saga) {
     iego_chrono_storm: "/Saga/IE-GO-Chronostones.webp",
     iego_galaxy: "/Saga/IE-GO-Galaxy.png",
   };
-  return map[code] || "/Saga/Ie1.webp";
+  return assetUrl(map[code] || "/Saga/Ie1.webp");
 }
 
 function coincideFiltro(personaje, query) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import "./AdivinarPareo.css";
 import { API_BASE } from "../../config";
+import { assetUrl } from "../../helpers/assetUrl";
 
 function normalizarRutaImagen(url) {
   if (!url) return url;
@@ -25,7 +26,7 @@ function iconoSagaPorCodigo(saga) {
     iego_chrono_storm: "/Saga/IE-GO-Chronostones.webp",
     iego_galaxy: "/Saga/IE-GO-Galaxy.png",
   };
-  return map[code] || "/Saga/Ie1.webp";
+  return assetUrl(map[code] || "/Saga/Ie1.webp");
 }
 
 function formatearNombreAtributo(attr) {

@@ -862,8 +862,10 @@ app.get("/api/diarios/ranking", async (req, res) => {
   }
 });
 
-app.post("/api/upload", upload.single("image"), async (req, res) => {
+app.post("/api/upload", upload.single("file"), async (req, res) => {
   try {
+    console.log("REQ FILE:", req.file);
+    console.log("BODY:", req.body);
     const result = await cloudinary.uploader.upload(req.file.path);
 
     return res.json({

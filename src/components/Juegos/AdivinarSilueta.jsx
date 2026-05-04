@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import "./AdivinarSilueta.css";
 import { API_BASE } from "../../config";
+import { assetUrl } from "../../helpers/assetUrl";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 
