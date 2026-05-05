@@ -1005,8 +1005,8 @@ export default function SeleccionJuego() {
                       ) : (
                         sobresCatalogo.map((s) => (
                           <div key={s.id} className="sobre-card">
-                            <div className="sobre-preview">
-                              {s.portada_src ? <img src={s.portada_src} alt={s.nombre} /> : <span>📦</span>}
+                            <div className="sobre-preview" style={s.portada_src ? { backgroundImage: `url(${s.portada_src})` } : {}}>
+                              {!s.portada_src && <span>📦</span>}
                             </div>
                             <strong>{s.nombre}</strong>
                             <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
