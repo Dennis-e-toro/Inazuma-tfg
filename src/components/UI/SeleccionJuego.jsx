@@ -276,10 +276,11 @@ export default function SeleccionJuego() {
             ...s,
             portada_src: s.portada_url && String(s.portada_url).startsWith('/') ? assetUrl(s.portada_url) : s.portada_url,
           }));
+          console.log('📦 Sobres cargados:', lista);
           setSobresCatalogo(lista);
         }
       } catch (e) {
-        // ignore
+        console.error('❌ Error cargando sobres:', e);
       } finally {
         setSobresCargando(false);
       }
@@ -1005,8 +1006,12 @@ export default function SeleccionJuego() {
                       ) : (
                         sobresCatalogo.map((s) => (
                           <div key={s.id} className="sobre-card">
-                            <div className="sobre-preview" style={s.portada_src ? { backgroundImage: `url(${s.portada_src})` } : {}}>
-                              {!s.portada_src && <span>📦</span>}
+                            <div className="sobre-preview">
+                              {s.portada_src ? (
+                                <img src={s.portada_src} alt={s.nombre} className="sobre-img" />
+                              ) : (
+                                <span>📦</span>
+                              )}
                             </div>
                             <strong>{s.nombre}</strong>
                             <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
