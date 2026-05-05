@@ -130,6 +130,7 @@ export default function SeleccionJuego() {
   const [partidaInicioTs, setPartidaInicioTs] = useState(() => Date.now());
   const [tiendaSaga, setTiendaSaga] = useState("all");
   const [tiendaClub, setTiendaClub] = useState("all");
+  const [tiendaSeccion, setTiendaSeccion] = useState("avatares");
   const [sobresCatalogo, setSobresCatalogo] = useState([]);
   const [sobresCargando, setSobresCargando] = useState(false);
   const [abrirSobreState, setAbrirSobreState] = useState({ abierto: false, sobre: null, cartas: [], animando: false });
@@ -894,7 +895,7 @@ export default function SeleccionJuego() {
                   <div className="perfil-hero-copy">
                     <span className="perfil-kicker">Tienda</span>
                     <h3>Avatares</h3>
-                    <p>Filtra por saga o equipo y equipa tu identidad.</p>
+                    <p>Separa la tienda en avatares y sobres para que quede más clara.</p>
                   </div>
                   <div className="perfil-hero-chip">
                     <span>Monedas</span>
@@ -902,10 +903,31 @@ export default function SeleccionJuego() {
                   </div>
                 </div>
 
+                <div className="shop-tabs" role="tablist" aria-label="Secciones de la tienda">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tiendaSeccion === "avatares"}
+                    className={tiendaSeccion === "avatares" ? "shop-tab shop-tab-active" : "shop-tab"}
+                    onClick={() => setTiendaSeccion("avatares")}
+                  >
+                    Avatares
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={tiendaSeccion === "sobres"}
+                    className={tiendaSeccion === "sobres" ? "shop-tab shop-tab-active" : "shop-tab"}
+                    onClick={() => setTiendaSeccion("sobres")}
+                  >
+                    Sobres
+                  </button>
+                </div>
+
                 <div className="perfil-section">
                   <div className="perfil-section-head">
-                    <h4>Filtros</h4>
-                    <p>Ajusta la vista de la tienda.</p>
+                    <h4>Filtros de avatares</h4>
+                    <p>Úsalos solo para el catálogo de avatares.</p>
                   </div>
                   <div className="shop-filters">
                     <label>
@@ -932,66 +954,71 @@ export default function SeleccionJuego() {
                   </div>
                 </div>
 
-                <div className="perfil-section perfil-section-shop-grid">
-                  <div className="perfil-section-head">
-                    <h4>Catálogo</h4>
-                    <p>Compra y equipa avatares.</p>
-                  </div>
-                  <div className="perfil-section-head">
-                    <h4>Sobres</h4>
-                    <p>Compra sobres y ábrelos para obtener cartas aleatorias.</p>
-                  </div>
-                  <div className="sobre-grid">
-                    {sobresCargando ? (
-                      <div>Cargando sobres...</div>
-                    ) : sobresCatalogo.length === 0 ? (
-                      <div>No hay sobres disponibles.</div>
-                    ) : (
-                      sobresCatalogo.map((s) => (
-                        <div key={s.id} className="sobre-card">
-                          <div className="sobre-preview">
-                            {s.portada_src ? <img src={s.portada_src} alt={s.nombre} /> : <span>📦</span>}
-                          </div>
-                          <strong>{s.nombre}</strong>
-                          <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
-                          <button type="button" onClick={() => comprarSobre(s)}>
-                            Comprar y abrir
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                  <div className="avatar-grid">
-                    {avataresFiltrados.map((avatar) => {
-                      const comprado = !!perfilActual?.ownedAvatarIds?.includes(avatar.id);
-                      const equipado = perfilActual?.equippedAvatarId === avatar.id;
-                      const puedeComprar = (perfilActual?.monedas || 0) >= avatar.precio;
+                {tiendaSeccion === "avatares" ? (
+                  <div className="perfil-section perfil-section-shop-grid">
+                    <div className="perfil-section-head">
+                      <h4>Catálogo de avatares</h4>
+                      <p>Compra y equipa avatares.</p>
+                    </div>
+                    <div className="avatar-grid">
+                      {avataresFiltrados.map((avatar) => {
+                        const comprado = !!perfilActual?.ownedAvatarIds?.includes(avatar.id);
+                        const equipado = perfilActual?.equippedAvatarId === avatar.id;
+                        const puedeComprar = (perfilActual?.monedas || 0) >= avatar.precio;
 
-                      return (
-                        <div key={avatar.id} className="avatar-card">
-                          <div className="avatar-preview">
-                            {avatar.src ? <img src={avatar.src} alt={avatar.nombre} /> : <span>👤</span>}
-                          </div>
-                          <strong>{avatar.nombre}</strong>
-                          <small>{avatar.precio === 0 ? "Gratis" : `${avatar.precio} monedas`}</small>
-                          <small>{avatar.saga.toUpperCase()} - {formatearClub(avatar.club)}</small>
+                        return (
+                          <div key={avatar.id} className="avatar-card">
+                            <div className="avatar-preview">
+                              {avatar.src ? <img src={avatar.src} alt={avatar.nombre} /> : <span>👤</span>}
+                            </div>
+                            <strong>{avatar.nombre}</strong>
+                            <small>{avatar.precio === 0 ? "Gratis" : `${avatar.precio} monedas`}</small>
+                            <small>{avatar.saga.toUpperCase()} - {formatearClub(avatar.club)}</small>
 
-                          {!comprado && (
-                            <button type="button" onClick={() => comprarAvatar(avatar)} disabled={!puedeComprar}>
-                              Comprar
-                            </button>
-                          )}
-                          {comprado && !equipado && (
-                            <button type="button" onClick={() => equiparAvatar(avatar.id)}>
-                              Equipar
-                            </button>
-                          )}
-                          {equipado && <span className="avatar-equipped">Equipado</span>}
-                        </div>
-                      );
-                    })}
+                            {!comprado && (
+                              <button type="button" onClick={() => comprarAvatar(avatar)} disabled={!puedeComprar}>
+                                Comprar
+                              </button>
+                            )}
+                            {comprado && !equipado && (
+                              <button type="button" onClick={() => equiparAvatar(avatar.id)}>
+                                Equipar
+                              </button>
+                            )}
+                            {equipado && <span className="avatar-equipped">Equipado</span>}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="perfil-section perfil-section-shop-grid">
+                    <div className="perfil-section-head">
+                      <h4>Sobres de prueba</h4>
+                      <p>Ahora mismo son gratis y cada sobre entrega 1 carta.</p>
+                    </div>
+                    <div className="sobre-grid">
+                      {sobresCargando ? (
+                        <div>Cargando sobres...</div>
+                      ) : sobresCatalogo.length === 0 ? (
+                        <div>No hay sobres disponibles.</div>
+                      ) : (
+                        sobresCatalogo.map((s) => (
+                          <div key={s.id} className="sobre-card">
+                            <div className="sobre-preview">
+                              {s.portada_src ? <img src={s.portada_src} alt={s.nombre} /> : <span>📦</span>}
+                            </div>
+                            <strong>{s.nombre}</strong>
+                            <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
+                            <button type="button" onClick={() => comprarSobre(s)}>
+                              Comprar y abrir
+                            </button>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
 
                 <div className="perfil-actions">
                   <button type="button" onClick={() => setAuthModo("cuenta")}>Volver</button>

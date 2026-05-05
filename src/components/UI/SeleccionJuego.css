@@ -487,6 +487,93 @@
   padding: 7px 8px;
 }
 
+.shop-tabs {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.shop-tab {
+  border-radius: 14px;
+  border: 1px solid rgba(176, 221, 255, 0.28);
+  background: linear-gradient(170deg, rgba(10, 34, 61, 0.94), rgba(8, 27, 53, 0.94));
+  color: #dff6ff;
+  padding: 10px 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform 0.15s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.shop-tab:hover {
+  transform: translateY(-1px);
+  border-color: rgba(106, 217, 255, 0.72);
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.2);
+}
+
+.shop-tab-active {
+  border-color: rgba(83, 227, 255, 0.95);
+  background: linear-gradient(170deg, rgba(11, 86, 114, 0.96), rgba(8, 59, 96, 0.94));
+  color: #ffffff;
+}
+
+.perfil-section-shop-grid {
+  padding-bottom: 6px;
+}
+
+.perfil-section-shop-grid .avatar-grid,
+.perfil-section-shop-grid .sobre-grid {
+  margin-top: 10px;
+}
+
+.perfil-section-shop-grid .sobre-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.perfil-section-shop-grid .sobre-card {
+  border-radius: 16px;
+  border: 1px solid rgba(171, 230, 255, 0.24);
+  background: linear-gradient(180deg, rgba(9, 42, 78, 0.9), rgba(8, 31, 58, 0.88));
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+  text-align: center;
+}
+
+.perfil-section-shop-grid .sobre-card strong {
+  color: #e9f8ff;
+}
+
+.perfil-section-shop-grid .sobre-card small {
+  color: #bde7ff;
+}
+
+.perfil-section-shop-grid .sobre-preview {
+  width: 100%;
+  min-height: 118px;
+  border-radius: 14px;
+  overflow: hidden;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(180deg, rgba(255, 168, 80, 0.18), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.perfil-section-shop-grid .sobre-preview img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.perfil-section-shop-grid .sobre-card button {
+  border-radius: 10px;
+  border: 1px solid rgba(171, 230, 255, 0.42);
+  background: rgba(8, 50, 86, 0.92);
+  color: #ebf9ff;
+  padding: 8px 10px;
+  cursor: pointer;
+}
+
 .avatar-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -599,10 +686,6 @@
 
 .perfil-hero-auth {
   margin-bottom: 4px;
-}
-
-.perfil-section-shop-grid {
-  padding-bottom: 6px;
 }
 
 .cuenta-panel .perfil-form {
