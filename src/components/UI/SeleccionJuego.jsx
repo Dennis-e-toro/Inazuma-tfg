@@ -86,54 +86,11 @@ function crearPerfilBase() {
   };
 }
 
-function escaparXml(texto) {
-  return String(texto || "")
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\"/g, "&quot;")
-    .replace(/'/g, "&apos;");
-}
-
-function crearCartaFallbackSrc(carta) {
-  const nombre = escaparXml(carta?.nombre || "Carta");
-  const rareza = escaparXml(String(carta?.rareza || "common").toUpperCase());
-  const club = escaparXml(carta?.club || "-");
-  const rarezaClave = String(carta?.rareza || "common").toLowerCase();
-  const fondo = rarezaClave === "ur"
-    ? "#c86bff"
-    : rarezaClave === "rare"
-      ? "#22c7d8"
-      : "#f2a65a";
-
-  const svg = `
-    <svg width="300" height="400" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 400">
-      <defs>
-        <linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stop-color="${fondo}" />
-          <stop offset="100%" stop-color="#0f172a" />
-        </linearGradient>
-      </defs>
-      <rect width="300" height="400" rx="24" fill="url(#g)" />
-      <rect x="14" y="14" width="272" height="372" rx="18" fill="none" stroke="rgba(255,255,255,0.9)" stroke-width="2" />
-      <text x="150" y="92" text-anchor="middle" fill="#ffffff" font-size="22" font-family="Arial, sans-serif" font-weight="700">${nombre}</text>
-      <text x="150" y="146" text-anchor="middle" fill="rgba(255,255,255,0.85)" font-size="15" font-family="Arial, sans-serif" letter-spacing="2">${rareza}</text>
-      <text x="150" y="236" text-anchor="middle" fill="#ffffff" font-size="48" font-family="Arial, sans-serif">⚡</text>
-      <text x="150" y="286" text-anchor="middle" fill="rgba(255,255,255,0.9)" font-size="14" font-family="Arial, sans-serif">Club: ${club}</text>
-      <text x="150" y="330" text-anchor="middle" fill="#ffffff" font-size="30" font-family="Arial, sans-serif">${rarezaClave === "ur" ? "★★" : rarezaClave === "rare" ? "★" : "•"}</text>
-    </svg>`;
-
-  return `data:image/svg+xml;base64,${btoa(unescape(encodeURIComponent(svg)))}`;
-}
-
 function normalizarImagenCarta(carta) {
   const url = String(carta?.imagen_url || "").trim();
-  if (!url) return crearCartaFallbackSrc(carta);
+  if (!url) return "";
   if (/^data:image\//i.test(url) || /^blob:/i.test(url)) return url;
   if (url.startsWith("/")) return assetUrl(url);
-  if (/via\.placeholder\.com|placeholder\.com|400x600\.png/i.test(url)) {
-    return crearCartaFallbackSrc(carta);
-  }
   return url;
 }
 
@@ -1185,15 +1142,8 @@ export default function SeleccionJuego() {
                             src={c.imagen_src} 
                             alt={c.nombre}
                             onError={(e) => {
-                              const target = e.currentTarget;
-                              if (target.dataset.fallbackApplied === '1') {
-                                console.error(`❌ Error loading carta image for ${c.nombre}:`, e);
-                                target.style.display = 'none';
-                                return;
-                              }
-
-                              target.dataset.fallbackApplied = '1';
-                              target.src = crearCartaFallbackSrc(c);
+                              console.error(`❌ Error loading carta image for ${c.nombre}:`, e);
+                              e.currentTarget.style.display = 'none';
                             }}
                             onLoad={() => console.log(`✓ Carta image loaded: ${c.nombre}`)}
                           />

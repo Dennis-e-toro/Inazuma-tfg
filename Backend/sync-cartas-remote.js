@@ -81,17 +81,31 @@ async function syncCartasToRemote() {
       const base64 = Buffer.from(svg).toString("base64");
       const dataUri = `data:image/svg+xml;base64,${base64}`;
 
-      const res = await pool.query(
-        `INSERT INTO cartas (nombre, imagen_url, rareza, club) 
-         VALUES ($1, $2, $3, $4)
-         ON CONFLICT DO NOTHING
+      const updateRes = await pool.query(
+        `UPDATE cartas
+         SET imagen_url = $2,
+             rareza = $3,
+             club = $4
+         WHERE nombre = $1
          RETURNING id`,
         [carta.nombre, dataUri, carta.rareza, carta.club]
       );
-      
-      if (res.rows.length > 0) {
+
+      if (updateRes.rows.length === 0) {
+        const insertRes = await pool.query(
+          `INSERT INTO cartas (nombre, imagen_url, rareza, club)
+           VALUES ($1, $2, $3, $4)
+           RETURNING id`,
+          [carta.nombre, dataUri, carta.rareza, carta.club]
+        );
+
+        if (insertRes.rows.length > 0) {
+          insertadas++;
+          console.log(`✓ ${carta.nombre}`);
+        }
+      } else {
         insertadas++;
-        console.log(`✓ ${carta.nombre}`);
+        console.log(`✓ ${carta.nombre} (actualizada)`);
       }
     }
 
