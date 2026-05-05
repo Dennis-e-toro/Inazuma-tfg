@@ -1121,7 +1121,19 @@ export default function SeleccionJuego() {
                   <div className="cartas-list">
                     {abrirSobreState.cartas.map((c) => (
                       <div key={c.id} className="carta-card">
-                        {c.imagen_src ? <img src={c.imagen_src} alt={c.nombre} /> : <div className="carta-placeholder">?</div>}
+                        {c.imagen_src ? (
+                          <img 
+                            src={c.imagen_src} 
+                            alt={c.nombre}
+                            onError={(e) => {
+                              console.error(`❌ Error loading carta image for ${c.nombre}:`, e);
+                              e.target.style.display = 'none';
+                            }}
+                            onLoad={() => console.log(`✓ Carta image loaded: ${c.nombre}`)}
+                          />
+                        ) : (
+                          <div className="carta-placeholder">?</div>
+                        )}
                         <strong>{c.nombre}</strong>
                         <small>{c.rareza}</small>
                       </div>
