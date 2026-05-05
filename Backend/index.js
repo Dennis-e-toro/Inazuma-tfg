@@ -665,6 +665,107 @@ app.get("/api/personajes", async (req, res) => {
   }
 });
 
+// --- Shop / Sobres endpoints ---
+
+async function obtenerSobresDisponibles() {
+  const result = await pool.query("SELECT id, nombre, precio_monedas, contenido_json, portada_url, activo FROM sobres WHERE activo = TRUE ORDER BY id ASC");
+  return result.rows;
+}
+
+async function obtenerCartasPorRareza(rareza, limite = 100) {
+  const res = await pool.query("SELECT id, nombre, imagen_url, rareza, club FROM cartas WHERE rareza = $1 ORDER BY id ASC LIMIT $2", [rareza, limite]);
+  return res.rows;
+}
+
+function elegirAleatorias(array, count) {
+  if (!Array.isArray(array) || array.length === 0) return [];
+  const copy = array.slice();
+  const out = [];
+  for (let i = 0; i < Math.min(count, copy.length); i += 1) {
+    const idx = Math.floor(Math.random() * copy.length);
+    out.push(copy[idx]);
+    copy.splice(idx, 1);
+  }
+  return out;
+}
+
+app.get('/api/shop/sobres', async (req, res) => {
+  try {
+    const sobres = await obtenerSobresDisponibles();
+    return res.json({ ok: true, sobres });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// Admin: subir carta (usa Cloudinary) - requiere ADMIN_KEY header 'x-admin-key'
+app.post('/api/admin/upload-card', upload.single('file'), async (req, res) => {
+  try {
+    const adminKey = req.headers['x-admin-key'];
+    if (!process.env.ADMIN_KEY || adminKey !== process.env.ADMIN_KEY) {
+      return res.status(401).json({ ok: false, error: 'Admin key invalid' });
+    }
+
+    const nombre = String(req.body?.nombre || '').trim();
+    const rareza = String(req.body?.rareza || 'common').trim().toLowerCase();
+    const club = String(req.body?.club || '').trim();
+
+    if (!req.file) return res.status(400).json({ ok: false, error: 'No file uploaded' });
+
+    const uploadResult = await cloudinary.uploader.upload(req.file.path, { folder: 'inazuma/cards' });
+
+    const creado = await pool.query(
+      'INSERT INTO cartas (nombre, imagen_url, rareza, club) VALUES ($1, $2, $3, $4) RETURNING id, nombre, imagen_url, rareza, club',
+      [nombre || uploadResult.public_id, uploadResult.secure_url, rareza, club],
+    );
+
+    return res.status(201).json({ ok: true, carta: creado.rows[0] });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+// Abrir sobre: genera cartas según configuración y guarda en user_cartas
+app.post('/api/shop/abrir-sobre', async (req, res) => {
+  try {
+    const user = await authDesdeToken(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const sobreId = parseNumero(req.body?.sobreId, null);
+    if (!sobreId) return res.status(400).json({ ok: false, error: 'sobreId requerido' });
+
+    const sobreRes = await pool.query('SELECT id, nombre, contenido_json FROM sobres WHERE id = $1 AND activo = TRUE LIMIT 1', [sobreId]);
+    if (sobreRes.rowCount === 0) return res.status(404).json({ ok: false, error: 'Sobre no encontrado' });
+    const sobre = sobreRes.rows[0];
+
+    const config = sobre.contenido_json || {};
+    const rarezas = Object.keys(config);
+    const cartasSeleccionadas = [];
+
+    for (const r of rarezas) {
+      const count = parseNumero(config[r], 0);
+      if (count <= 0) continue;
+      const disponibles = await obtenerCartasPorRareza(r, 1000);
+      const elegidas = elegirAleatorias(disponibles, count);
+      cartasSeleccionadas.push(...elegidas);
+    }
+
+    // Guardar en user_cartas (upsert)
+    for (const c of cartasSeleccionadas) {
+      await pool.query(
+        `INSERT INTO user_cartas (usuario_id, carta_id, cantidad, creado_en)
+         VALUES ($1, $2, 1, NOW())
+         ON CONFLICT (usuario_id, carta_id) DO UPDATE SET cantidad = user_cartas.cantidad + 1`,
+        [user.id, c.id],
+      );
+    }
+
+    return res.json({ ok: true, cartas: cartasSeleccionadas });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
 app.get("/api/diarios/estado", async (req, res) => {
   try {
     const modoClave = String(

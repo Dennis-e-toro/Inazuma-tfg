@@ -130,6 +130,9 @@ export default function SeleccionJuego() {
   const [partidaInicioTs, setPartidaInicioTs] = useState(() => Date.now());
   const [tiendaSaga, setTiendaSaga] = useState("all");
   const [tiendaClub, setTiendaClub] = useState("all");
+  const [sobresCatalogo, setSobresCatalogo] = useState([]);
+  const [sobresCargando, setSobresCargando] = useState(false);
+  const [abrirSobreState, setAbrirSobreState] = useState({ abierto: false, sobre: null, cartas: [], animando: false });
   const [toastMonedas, setToastMonedas] = useState("");
   const [panelVictoriaPorModo, setPanelVictoriaPorModo] = useState({});
   const [rankingDiario, setRankingDiario] = useState([]);
@@ -261,6 +264,25 @@ export default function SeleccionJuego() {
     };
 
     cargarAvatares();
+    // Cargar sobres para la tienda
+    (async function cargarSobres() {
+      try {
+        setSobresCargando(true);
+        const res = await fetch(`${API_BASE}/api/shop/sobres`);
+        const data = await res.json();
+        if (res.ok && data?.ok) {
+          const lista = (data.sobres || []).map((s) => ({
+            ...s,
+            portada_src: s.portada_url && String(s.portada_url).startsWith('/') ? assetUrl(s.portada_url) : s.portada_url,
+          }));
+          setSobresCatalogo(lista);
+        }
+      } catch (e) {
+        // ignore
+      } finally {
+        setSobresCargando(false);
+      }
+    })();
   }, []);
 
   useEffect(() => {
@@ -598,6 +620,36 @@ export default function SeleccionJuego() {
     }));
   };
 
+  const comprarSobre = async (sobre) => {
+    if (!perfilActual) return;
+    if (!sesion?.token) return lanzarToast('Necesitas iniciar sesión');
+    if ((Number(perfilActual.monedas) || 0) < (sobre.precio_monedas || 0)) return lanzarToast('Monedas insuficientes');
+
+    actualizarPerfilActual((base) => ({ ...base, monedas: (Number(base.monedas) || 0) - Number(sobre.precio_monedas || 0) }));
+    setAbrirSobreState({ abierto: true, sobre, cartas: [], animando: true });
+
+    try {
+      const res = await fetch(`${API_BASE}/api/shop/abrir-sobre`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion.token}` },
+        body: JSON.stringify({ sobreId: sobre.id }),
+      });
+      const data = await res.json();
+      if (res.ok && data?.ok) {
+        const cartas = (data.cartas || []).map((c) => ({ ...c, imagen_src: c.imagen_url && String(c.imagen_url).startsWith('/') ? assetUrl(c.imagen_url) : c.imagen_url }));
+        setAbrirSobreState({ abierto: true, sobre, cartas, animando: false });
+      } else {
+        lanzarToast(data?.error || 'Error abriendo sobre');
+        actualizarPerfilActual((base) => ({ ...base, monedas: (Number(base.monedas) || 0) + Number(sobre.precio_monedas || 0) }));
+        setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false });
+      }
+    } catch (e) {
+      lanzarToast('Error de red');
+      actualizarPerfilActual((base) => ({ ...base, monedas: (Number(base.monedas) || 0) + Number(sobre.precio_monedas || 0) }));
+      setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false });
+    }
+  };
+
   const equiparAvatar = (avatarId) => {
     if (!perfilActual?.ownedAvatarIds?.includes(avatarId)) return;
     actualizarPerfilActual((base) => ({
@@ -885,6 +937,30 @@ export default function SeleccionJuego() {
                     <h4>Catálogo</h4>
                     <p>Compra y equipa avatares.</p>
                   </div>
+                  <div className="perfil-section-head">
+                    <h4>Sobres</h4>
+                    <p>Compra sobres y ábrelos para obtener cartas aleatorias.</p>
+                  </div>
+                  <div className="sobre-grid">
+                    {sobresCargando ? (
+                      <div>Cargando sobres...</div>
+                    ) : sobresCatalogo.length === 0 ? (
+                      <div>No hay sobres disponibles.</div>
+                    ) : (
+                      sobresCatalogo.map((s) => (
+                        <div key={s.id} className="sobre-card">
+                          <div className="sobre-preview">
+                            {s.portada_src ? <img src={s.portada_src} alt={s.nombre} /> : <span>📦</span>}
+                          </div>
+                          <strong>{s.nombre}</strong>
+                          <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
+                          <button type="button" onClick={() => comprarSobre(s)}>
+                            Comprar y abrir
+                          </button>
+                        </div>
+                      ))
+                    )}
+                  </div>
                   <div className="avatar-grid">
                     {avataresFiltrados.map((avatar) => {
                       const comprado = !!perfilActual?.ownedAvatarIds?.includes(avatar.id);
@@ -988,6 +1064,37 @@ export default function SeleccionJuego() {
         </div>
       )}
 
+      {abrirSobreState.abierto && (
+        <div className="sobre-modal">
+          <div className={`sobre-modal-backdrop ${abrirSobreState.animando ? 'animando' : ''}`} onClick={() => { if (!abrirSobreState.animando) setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false }); }} />
+          <div className="sobre-modal-body">
+            <h4>{abrirSobreState.sobre?.nombre || 'Sobre'}</h4>
+            {abrirSobreState.animando ? (
+              <div className="sobre-opening">
+                <div className="sobre-box">🎁</div>
+                <p>Abriendo...</p>
+              </div>
+            ) : (
+              <div className="sobre-result">
+                {abrirSobreState.cartas.length === 0 ? <p>No se obtuvieron cartas.</p> : (
+                  <div className="cartas-list">
+                    {abrirSobreState.cartas.map((c) => (
+                      <div key={c.id} className="carta-card">
+                        {c.imagen_src ? <img src={c.imagen_src} alt={c.nombre} /> : <div className="carta-placeholder">?</div>}
+                        <strong>{c.nombre}</strong>
+                        <small>{c.rareza}</small>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div className="perfil-actions">
+                  <button type="button" onClick={() => setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false })}>Cerrar</button>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       {toastMonedas && <div className="coin-toast">{toastMonedas}</div>}
     </div>
   );

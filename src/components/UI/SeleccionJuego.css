@@ -767,6 +767,58 @@ input:focus-visible {
   text-transform: uppercase;
 }
 
+/* Sobres UI */
+.sobre-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 12px;
+  margin: 12px 0;
+}
+.sobre-card {
+  border-radius: 12px;
+  border: 1px solid rgba(171,230,255,0.18);
+  padding: 10px;
+  text-align: center;
+  background: rgba(6,30,50,0.6);
+}
+.sobre-card .sobre-preview img {
+  width: 100%;
+  height: 96px;
+  object-fit: cover;
+  border-radius: 8px;
+}
+.sobre-modal {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 60;
+}
+.sobre-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+}
+.sobre-modal-body {
+  position: relative;
+  width: min(720px, 96%);
+  border-radius: 14px;
+  padding: 18px;
+  background: linear-gradient(180deg, rgba(8,34,60,0.98), rgba(4,18,33,0.98));
+  border: 1px solid rgba(255,255,255,0.06);
+  z-index: 62;
+  color: #eaf8ff;
+}
+.sobre-opening .sobre-box {
+  font-size: 56px;
+  animation: wiggle 900ms ease-in-out infinite;
+}
+.cartas-list { display:flex; gap:12px; flex-wrap:wrap; justify-content:center; }
+.carta-card { width:140px; text-align:center; }
+.carta-card img { width:100%; height:160px; object-fit:contain; border-radius:10px; }
+
+@keyframes wiggle { 0%{transform:translateY(0)}50%{transform:translateY(-8px)}100%{transform:translateY(0)} }
+
 .victory-body {  display: grid;
   grid-template-columns: minmax(0, 1.4fr) minmax(270px, 0.9fr);
   gap: 14px;

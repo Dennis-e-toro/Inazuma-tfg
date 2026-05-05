@@ -175,3 +175,51 @@ SELECT
   tiempo_ms,
   posicion
 FROM vw_ranking_diario;
+
+-- Tablas para sistema de sobres y cartas (coleccionables)
+CREATE TABLE IF NOT EXISTS cartas (
+  id BIGSERIAL PRIMARY KEY,
+  nombre TEXT,
+  imagen_url TEXT NOT NULL,
+  rareza TEXT NOT NULL DEFAULT 'common',
+  saga TEXT,
+  club TEXT,
+  creado_por BIGINT REFERENCES usuarios(id),
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_cartas_rareza ON cartas (rareza);
+CREATE INDEX IF NOT EXISTS idx_cartas_saga ON cartas (saga);
+
+CREATE TABLE IF NOT EXISTS sobres (
+  id BIGSERIAL PRIMARY KEY,
+  nombre TEXT NOT NULL,
+  precio_monedas INTEGER NOT NULL DEFAULT 100,
+  contenido_json JSONB NOT NULL DEFAULT '{"common":3, "rare":1}',
+  portada_url TEXT,
+  activo BOOLEAN NOT NULL DEFAULT TRUE,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS user_cartas (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  carta_id BIGINT NOT NULL REFERENCES cartas(id) ON DELETE RESTRICT,
+  cantidad INTEGER NOT NULL DEFAULT 1,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (usuario_id, carta_id)
+);
+
+CREATE TABLE IF NOT EXISTS sobres_compras (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  sobre_id BIGINT NOT NULL REFERENCES sobres(id) ON DELETE RESTRICT,
+  abierto BOOLEAN NOT NULL DEFAULT FALSE,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  abierto_en TIMESTAMPTZ
+);
+
+-- Ajustes: eliminar columnas no necesarias para los diseños subidos por el admin
+DROP INDEX IF EXISTS idx_cartas_saga;
+ALTER TABLE IF EXISTS cartas DROP COLUMN IF EXISTS saga;
+ALTER TABLE IF EXISTS cartas DROP COLUMN IF EXISTS creado_por;
