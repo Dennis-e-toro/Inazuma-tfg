@@ -550,20 +550,24 @@
 
 .perfil-section-shop-grid .sobre-preview {
   width: 100%;
-  min-height: 118px;
+  height: 118px;
   border-radius: 14px;
   overflow: hidden;
-  display: grid;
-  place-items: center;
   background: linear-gradient(180deg, rgba(255, 168, 80, 0.18), rgba(255, 255, 255, 0.06));
   border: 1px solid rgba(255, 255, 255, 0.1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .perfil-section-shop-grid .sobre-preview .sobre-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+}
+
+.perfil-section-shop-grid .sobre-preview span {
+  font-size: 48px;
 }
 
 .perfil-section-shop-grid .sobre-card button {
@@ -869,15 +873,18 @@ input:focus-visible {
   width: 100%;
   height: 96px;
   border-radius: 8px;
-  display: grid;
-  place-items: center;
   overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 .sobre-card .sobre-preview .sobre-img {
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+}
+.sobre-card .sobre-preview span {
+  font-size: 36px;
 }
 .sobre-modal {
   position: fixed;

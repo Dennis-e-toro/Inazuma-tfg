@@ -1008,7 +1008,16 @@ export default function SeleccionJuego() {
                           <div key={s.id} className="sobre-card">
                             <div className="sobre-preview">
                               {s.portada_src ? (
-                                <img src={s.portada_src} alt={s.nombre} className="sobre-img" />
+                                <img 
+                                  src={s.portada_src} 
+                                  alt={s.nombre} 
+                                  className="sobre-img"
+                                  onError={(e) => {
+                                    console.error(`❌ Error loading portada for ${s.nombre}:`, e);
+                                    e.target.style.display = 'none';
+                                  }}
+                                  onLoad={() => console.log(`✓ Portada loaded: ${s.nombre}`)}
+                                />
                               ) : (
                                 <span>📦</span>
                               )}
