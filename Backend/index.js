@@ -760,6 +760,17 @@ app.post('/api/shop/abrir-sobre', async (req, res) => {
       );
     }
 
+    console.log(`[ABRIR-SOBRE] Usuario ${user.username} abrió sobre ${sobre.id}`);
+    console.log(`[ABRIR-SOBRE] Cartas seleccionadas: ${cartasSeleccionadas.length}`);
+    if (cartasSeleccionadas.length > 0) {
+      console.log(`[ABRIR-SOBRE] Primera carta:`, {
+        id: cartasSeleccionadas[0].id,
+        nombre: cartasSeleccionadas[0].nombre,
+        rareza: cartasSeleccionadas[0].rareza,
+        imagen_url_preview: String(cartasSeleccionadas[0].imagen_url).substring(0, 50) + '...',
+      });
+    }
+
     return res.json({ ok: true, cartas: cartasSeleccionadas });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });

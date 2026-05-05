@@ -638,7 +638,15 @@ export default function SeleccionJuego() {
       });
       const data = await res.json();
       if (res.ok && data?.ok) {
-        const cartas = (data.cartas || []).map((c) => ({ ...c, imagen_src: c.imagen_url && String(c.imagen_url).startsWith('/') ? assetUrl(c.imagen_url) : c.imagen_url }));
+        console.log(`[COMPRAR-SOBRE] Respuesta del servidor:`, data);
+        const cartas = (data.cartas || []).map((c) => {
+          const imagen_src = c.imagen_url && String(c.imagen_url).startsWith('/') ? assetUrl(c.imagen_url) : c.imagen_url;
+          console.log(`[COMPRAR-SOBRE] Mapeando carta ${c.nombre}:`, {
+            imagen_url_original: String(c.imagen_url).substring(0, 50) + '...',
+            imagen_src_final: String(imagen_src).substring(0, 50) + '...',
+          });
+          return { ...c, imagen_src };
+        });
         setAbrirSobreState({ abierto: true, sobre, cartas, animando: false });
       } else {
         lanzarToast(data?.error || 'Error abriendo sobre');
