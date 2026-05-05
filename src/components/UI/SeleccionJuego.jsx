@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import "./SeleccionJuego.css";
 
 import AdivinarPersonaje from "../Juegos/AdivinarPersonaje";
@@ -521,7 +521,7 @@ export default function SeleccionJuego() {
     setAuthAbierto(false);
   };
 
-  const registrarCompletadoDiario = (payload) => {
+  const registrarCompletadoDiario = useCallback((payload) => {
     const evento = typeof payload === "string" ? { modoId: payload } : payload || {};
     const modoId = evento.modoId || evento.id || juegoSeleccionado;
     const modoNombre = juegos.find((j) => j.id === modoId)?.nombre || "Modo";
@@ -638,7 +638,7 @@ export default function SeleccionJuego() {
         lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
       },
     }));
-  };
+  }, [juegoSeleccionado, juegos, hoy, partidaInicioTs, perfilActual, sesion?.username, lanzarToast, actualizarPerfilActual]);
 
   const reiniciarModoActual = () => {
     if (panelVictoriaActiva?.bloqueadoDiario) {
