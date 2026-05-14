@@ -831,11 +831,18 @@ export default function SeleccionJuego() {
   };
 
   const equiparAvatar = (avatarId) => {
-    if (!perfilActual?.ownedAvatarIds?.includes(avatarId)) return;
-    actualizarPerfilActual((base) => ({
-      ...base,
-      equippedAvatarId: avatarId,
-    }));
+    if (!perfilActual) return;
+    actualizarPerfilActual((base) => {
+      const owned = new Set(base.ownedAvatarIds || ["starter"]);
+      const disponibleEnInventario = inventarioIconosFiltrados.some((item) => item.item_key === avatarId);
+      if (!owned.has(avatarId) && !disponibleEnInventario) return base;
+      owned.add(avatarId);
+      return {
+        ...base,
+        ownedAvatarIds: [...owned],
+        equippedAvatarId: avatarId,
+      };
+    });
   };
 
   const ComponenteJuego = juegoActivo.componente;
@@ -1132,7 +1139,7 @@ export default function SeleccionJuego() {
                           <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card">
                             <div className="inventario-preview">
                               {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>🃏</span>}
-                              <span className="inventario-count">x{Math.max(1, Number(item.cantidad) || 0)}</span>
+                              <span className="inventario-count inventario-count-card">x{Math.max(1, Number(item.cantidad) || 0)}</span>
                             </div>
                             <strong>{item.nombre}</strong>
                             <small>{String(item.rareza || "common").toUpperCase()}</small>
@@ -1146,11 +1153,12 @@ export default function SeleccionJuego() {
                         <div>Aún no tienes iconos en el inventario.</div>
                       ) : inventarioIconosFiltrados.map((item) => {
                         const equipado = perfilActual?.equippedAvatarId === item.item_key;
+                        const avatarCatalogoIcono = avatarCatalogo.find((avatar) => avatar.id === item.item_key);
+                        const iconoSrc = item.imagen_src || avatarCatalogoIcono?.src || null;
                         return (
                         <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card inventario-card-icon">
                           <div className="inventario-preview inventario-preview-icon">
-                            {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>👤</span>}
-                            <span className="inventario-count">x{Math.max(1, Number(item.cantidad) || 0)}</span>
+                            {iconoSrc ? <img src={iconoSrc} alt={item.nombre} /> : <span>👤</span>}
                           </div>
                           <strong>{item.nombre}</strong>
                           <small>ICONO</small>

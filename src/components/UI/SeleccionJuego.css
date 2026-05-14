@@ -590,6 +590,13 @@
   padding: 4px 7px;
 }
 
+.inventario-count-card {
+  right: 4px;
+  bottom: 4px;
+  font-size: 0.58rem;
+  padding: 3px 6px;
+}
+
 .inventario-card strong {
   color: #e9f8ff;
   font-size: 0.84rem;
