@@ -9,6 +9,7 @@ import { assetUrl } from "../../helpers/assetUrl";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 const AUTH_PROFILE_KEY = "inazudle.profile.v2";
+const DEFAULT_SOBRE_PORTADA = assetUrl("/cartas/aiden_y_shawn.png");
 
 function cargarSesionLocal() {
   try {
@@ -1088,20 +1089,16 @@ export default function SeleccionJuego() {
                         sobresCatalogo.map((s) => (
                           <div key={s.id} className="sobre-card">
                             <div className="sobre-preview">
-                              {s.portada_src ? (
-                                <img 
-                                  src={s.portada_src} 
+                              <img 
+                                src={s.portada_src || DEFAULT_SOBRE_PORTADA} 
                                   alt={s.nombre} 
                                   className="sobre-img"
                                   onError={(e) => {
                                     console.error(`❌ Error loading portada for ${s.nombre}:`, e);
-                                    e.target.style.display = 'none';
+                                    e.target.src = DEFAULT_SOBRE_PORTADA;
                                   }}
                                   onLoad={() => console.log(`✓ Portada loaded: ${s.nombre}`)}
-                                />
-                              ) : (
-                                <span>📦</span>
-                              )}
+                              />
                             </div>
                             <strong>{s.nombre}</strong>
                             <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>

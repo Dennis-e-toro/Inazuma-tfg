@@ -36,6 +36,7 @@ function construirCartasDesdeCarpeta() {
 async function syncCartasToRemote() {
   const pool = new Pool(createPgConfig());
   const cartas = construirCartasDesdeCarpeta();
+  const imagenesDeseadas = new Set(cartas.map((c) => c.imagen));
 
   try {
     console.log("🔄 Sincronizando cartas a BD remota (Neon)...\n");
@@ -45,16 +46,28 @@ async function syncCartasToRemote() {
       return;
     }
 
+    const existentes = await pool.query("SELECT id, nombre, imagen_url FROM cartas");
+    const idsACambiar = existentes.rows
+      .filter((carta) => !imagenesDeseadas.has(carta.imagen_url))
+      .map((carta) => carta.id);
+
+    if (idsACambiar.length > 0) {
+      await pool.query("DELETE FROM user_cartas WHERE carta_id = ANY($1::bigint[])", [idsACambiar]);
+      const deleted = await pool.query("DELETE FROM cartas WHERE id = ANY($1::bigint[]) RETURNING id", [idsACambiar]);
+      console.log(`🧹 Eliminadas ${deleted.rowCount} cartas antiguas que ya no existen en public/cartas`);
+    }
+
     let insertadas = 0;
     for (const carta of cartas) {
       const dataUri = carta.imagen;
 
       const updateRes = await pool.query(
         `UPDATE cartas
-         SET imagen_url = $2,
+         SET nombre = $1,
+             imagen_url = $2,
              rareza = $3,
              club = $4
-         WHERE nombre = $1
+         WHERE imagen_url = $2
          RETURNING id`,
         [carta.nombre, dataUri, carta.rareza, carta.club]
       );
