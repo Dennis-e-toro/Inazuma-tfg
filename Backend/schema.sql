@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS usuarios (
   username VARCHAR(50) UNIQUE NOT NULL,
   email VARCHAR(100) UNIQUE NOT NULL,
   "contraseña" VARCHAR(255) NOT NULL,
+  monedas INTEGER NOT NULL DEFAULT 0,
   foto_perfil VARCHAR(255),
   fecha_registro TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   ultimo_login TIMESTAMP
@@ -217,6 +218,25 @@ CREATE TABLE IF NOT EXISTS sobres_compras (
   abierto BOOLEAN NOT NULL DEFAULT FALSE,
   creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   abierto_en TIMESTAMPTZ
+);
+
+CREATE TABLE IF NOT EXISTS recompensas_diarias (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  dia DATE NOT NULL,
+  modo_clave TEXT NOT NULL,
+  premio INTEGER NOT NULL,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (usuario_id, dia, modo_clave)
+);
+
+CREATE TABLE IF NOT EXISTS monedas_movimientos (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  cambio INTEGER NOT NULL,
+  motivo TEXT NOT NULL,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- Ajustes: eliminar columnas no necesarias para los diseños subidos por el admin

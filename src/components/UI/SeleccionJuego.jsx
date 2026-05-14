@@ -19,6 +19,7 @@ function cargarSesionLocal() {
     return {
       token: String(data.token),
       username: String(data.username),
+      monedas: Number(data.monedas) || 0,
     };
   } catch {
     return null;
@@ -79,7 +80,6 @@ function formatearClub(v) {
 
 function crearPerfilBase() {
   return {
-    monedas: 0,
     ownedAvatarIds: ["starter"],
     equippedAvatarId: "starter",
     dailyCompletions: {},
@@ -161,6 +161,7 @@ export default function SeleccionJuego() {
   const juegoActivo = useMemo(() => juegos.find((j) => j.id === juegoSeleccionado) || juegos[0], [juegos, juegoSeleccionado]);
   const panelVictoriaActiva = useMemo(() => panelVictoriaPorModo[juegoActivo.id] || null, [panelVictoriaPorModo, juegoActivo.id]);
   const usuarioLabel = sesion?.username || "Invitado";
+  const monedasActuales = Number(sesion?.monedas) || 0;
   const rankingClavePorModo = useMemo(() => ({
     adivinarPersonaje: "normal",
     adivinarSilueta: "silueta",
@@ -207,9 +208,20 @@ export default function SeleccionJuego() {
         const res = await fetch(`${API_BASE}/api/auth/me`, {
           headers: { Authorization: `Bearer ${sesion.token}` },
         });
+        const data = await res.json();
         if (!res.ok) {
           setSesion(null);
           limpiarSesionLocal();
+          return;
+        }
+        if (data?.ok && data?.user?.username) {
+          const refrescada = {
+            token: sesion.token,
+            username: String(data.user.username),
+            monedas: Number(data.user.monedas) || 0,
+          };
+          setSesion(refrescada);
+          guardarSesionLocal(refrescada);
         }
       } catch {
         // offline tolerado
@@ -383,6 +395,17 @@ export default function SeleccionJuego() {
     });
   };
 
+  const actualizarMonedasSesion = useCallback((monedas) => {
+    const valor = Number(monedas);
+    if (!Number.isFinite(valor)) return;
+    setSesion((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, monedas: valor };
+      guardarSesionLocal(next);
+      return next;
+    });
+  }, []);
+
   const lanzarToast = (mensaje) => {
     if (toastTimerRef.current) {
       clearTimeout(toastTimerRef.current);
@@ -450,6 +473,7 @@ export default function SeleccionJuego() {
       const nuevaSesion = {
         username: String(data.user.username),
         token: String(data.token),
+        monedas: Number(data.user.monedas) || 0,
       };
       setSesion(nuevaSesion);
       guardarSesionLocal(nuevaSesion);
@@ -478,10 +502,11 @@ export default function SeleccionJuego() {
     setAuthAbierto(false);
   };
 
-  const registrarCompletadoDiario = useCallback((payload) => {
+  const registrarCompletadoDiario = useCallback(async (payload) => {
     const evento = typeof payload === "string" ? { modoId: payload } : payload || {};
     const modoId = evento.modoId || evento.id || juegoSeleccionado;
     const modoNombre = juegos.find((j) => j.id === modoId)?.nombre || "Modo";
+    const modoClave = rankingClavePorModo[modoId] || "normal";
     const personajeNombre = String(evento.personajeNombre || evento.nombre || "");
     const personajeSprite = evento.personajeSprite || evento.sprite || null;
     const hideCharacter = Boolean(evento.hideCharacter);
@@ -505,7 +530,7 @@ export default function SeleccionJuego() {
           progresoTotal: juegos.length,
           racha: 0,
           mensaje: victoriaMensajeEvento || "Has acertado. Inicia sesion para guardar progreso diario y recibir monedas.",
-          monedasTotales: 0,
+          monedasTotales: monedasActuales,
           lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
         },
       }));
@@ -516,7 +541,7 @@ export default function SeleccionJuego() {
     let yaCompletado = false;
     let progresoDespues = 0;
     let rachaDespues = 0;
-    let monedasDespues = Number(perfilActual?.monedas) || 0;
+    let monedasDespues = monedasActuales;
 
     actualizarPerfilActual((base) => {
       const daily = { ...(base.dailyCompletions || {}) };
@@ -525,7 +550,6 @@ export default function SeleccionJuego() {
         yaCompletado = true;
         progresoDespues = Object.values(hoyMap).filter(Boolean).length;
         rachaDespues = calcularRachaDias(daily, hoy);
-        monedasDespues = Number(base.monedas) || 0;
         return base;
       }
 
@@ -537,11 +561,9 @@ export default function SeleccionJuego() {
       daily[hoy] = hoyMap;
       progresoDespues = Object.values(hoyMap).filter(Boolean).length;
       rachaDespues = calcularRachaDias(daily, hoy);
-      monedasDespues = (Number(base.monedas) || 0) + premio;
 
       return {
         ...base,
-        monedas: monedasDespues,
         dailyCompletions: daily,
       };
     });
@@ -566,6 +588,32 @@ export default function SeleccionJuego() {
         },
       }));
       return;
+    }
+
+    try {
+      const res = await fetch(`${API_BASE}/api/coins/recompensa-diaria`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${sesion.token}`,
+        },
+        body: JSON.stringify({ modoClave, dia: hoy, premio: premioOtorgado }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        premioOtorgado = 0;
+        lanzarToast(data?.error || "No se pudo guardar la recompensa");
+      } else {
+        monedasDespues = Number(data.monedas) || 0;
+        actualizarMonedasSesion(monedasDespues);
+        if (!data.otorgado) {
+          premioOtorgado = 0;
+          lanzarToast("Este modo ya se recompenso hoy");
+        }
+      }
+    } catch {
+      premioOtorgado = 0;
+      lanzarToast("No se pudo guardar la recompensa");
     }
 
     if (premioOtorgado > 0) {
@@ -595,7 +643,7 @@ export default function SeleccionJuego() {
         lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
       },
     }));
-  }, [juegoSeleccionado, juegos, hoy, partidaInicioTs, perfilActual, sesion?.username, lanzarToast, actualizarPerfilActual]);
+  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion]);
 
   const reiniciarModoActual = () => {
     if (panelVictoriaActiva?.bloqueadoDiario) {
@@ -618,14 +666,33 @@ export default function SeleccionJuego() {
     setPartidaInicioTs(Date.now());
   };
 
-  const comprarAvatar = (avatar) => {
+  const comprarAvatar = async (avatar) => {
     if (!perfilActual) return;
+    if (!sesion?.token) return lanzarToast('Necesitas iniciar sesión');
     if (perfilActual.ownedAvatarIds.includes(avatar.id)) return;
-    if ((Number(perfilActual.monedas) || 0) < avatar.precio) return;
+    if (monedasActuales < avatar.precio) return lanzarToast('Monedas insuficientes');
+
+    try {
+      const res = await fetch(`${API_BASE}/api/coins/spend`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${sesion.token}`,
+        },
+        body: JSON.stringify({ amount: avatar.precio, reason: 'compra_avatar', metadata: { avatarId: avatar.id } }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        return lanzarToast(data?.error || 'No se pudo comprar el avatar');
+      }
+
+      actualizarMonedasSesion(data.monedas);
+    } catch {
+      return lanzarToast('Error de red al comprar avatar');
+    }
 
     actualizarPerfilActual((base) => ({
       ...base,
-      monedas: (Number(base.monedas) || 0) - avatar.precio,
       ownedAvatarIds: [...new Set([...(base.ownedAvatarIds || ["starter"]), avatar.id])],
     }));
   };
@@ -633,9 +700,8 @@ export default function SeleccionJuego() {
   const comprarSobre = async (sobre) => {
     if (!perfilActual) return;
     if (!sesion?.token) return lanzarToast('Necesitas iniciar sesión');
-    if ((Number(perfilActual.monedas) || 0) < (sobre.precio_monedas || 0)) return lanzarToast('Monedas insuficientes');
+    if (monedasActuales < (sobre.precio_monedas || 0)) return lanzarToast('Monedas insuficientes');
 
-    actualizarPerfilActual((base) => ({ ...base, monedas: (Number(base.monedas) || 0) - Number(sobre.precio_monedas || 0) }));
     setAbrirSobreState({ abierto: true, sobre, cartas: [], animando: true });
 
     try {
@@ -647,6 +713,7 @@ export default function SeleccionJuego() {
       const data = await res.json();
       if (res.ok && data?.ok) {
         console.log(`[COMPRAR-SOBRE] Respuesta del servidor:`, data);
+        actualizarMonedasSesion(data.monedas_restantes);
         const cartas = (data.cartas || []).map((c) => {
           const imagen_src = normalizarImagenCarta(c);
           console.log(`[COMPRAR-SOBRE] Mapeando carta ${c.nombre}:`, {
@@ -658,12 +725,10 @@ export default function SeleccionJuego() {
         setAbrirSobreState({ abierto: true, sobre, cartas, animando: false });
       } else {
         lanzarToast(data?.error || 'Error abriendo sobre');
-        actualizarPerfilActual((base) => ({ ...base, monedas: (Number(base.monedas) || 0) + Number(sobre.precio_monedas || 0) }));
         setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false });
       }
     } catch (e) {
       lanzarToast('Error de red');
-      actualizarPerfilActual((base) => ({ ...base, monedas: (Number(base.monedas) || 0) + Number(sobre.precio_monedas || 0) }));
       setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false });
     }
   };
@@ -873,7 +938,7 @@ export default function SeleccionJuego() {
                 <div className="perfil-metrics">
                   <article>
                     <span>Monedas</span>
-                    <strong>{perfilActual?.monedas || 0}</strong>
+                    <strong>{monedasActuales}</strong>
                   </article>
                   <article>
                     <span>Racha</span>
@@ -916,7 +981,7 @@ export default function SeleccionJuego() {
                   </div>
                   <div className="perfil-hero-chip">
                     <span>Monedas</span>
-                    <strong>{perfilActual?.monedas || 0}</strong>
+                    <strong>{monedasActuales}</strong>
                   </div>
                 </div>
 
@@ -981,7 +1046,7 @@ export default function SeleccionJuego() {
                       {avataresFiltrados.map((avatar) => {
                         const comprado = !!perfilActual?.ownedAvatarIds?.includes(avatar.id);
                         const equipado = perfilActual?.equippedAvatarId === avatar.id;
-                        const puedeComprar = (perfilActual?.monedas || 0) >= avatar.precio;
+                        const puedeComprar = monedasActuales >= avatar.precio;
 
                         return (
                           <div key={avatar.id} className="avatar-card">

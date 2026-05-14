@@ -41,6 +41,7 @@ const AUTH_SECRET = process.env.AUTH_SECRET || "inazudle-dev-secret-change-me";
 const PBKDF2_ITERATIONS = 120000;
 let PASSWORD_COLUMN_SQL = '"contraseña"';
 const TIMEZONE_MADRID = "Europe/Madrid";
+const COINS_INITIAL_BALANCE = 0;
 
 function generarSalt() {
   return crypto.randomBytes(16).toString("hex");
@@ -213,6 +214,38 @@ async function validarAuthSchema() {
   }
 }
 
+async function asegurarSistemaMonedas() {
+  try {
+    await pool.query(
+      "ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS monedas INTEGER NOT NULL DEFAULT 0",
+    );
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS recompensas_diarias (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        dia DATE NOT NULL,
+        modo_clave TEXT NOT NULL,
+        premio INTEGER NOT NULL,
+        creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (usuario_id, dia, modo_clave)
+      )`,
+    );
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS monedas_movimientos (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        cambio INTEGER NOT NULL,
+        motivo TEXT NOT NULL,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )`,
+    );
+    console.log("✓ Sistema de monedas validado");
+  } catch (error) {
+    console.error("⚠ Error en asegurarSistemaMonedas:", error.message);
+  }
+}
+
 async function authDesdeToken(req) {
   const auth = req.headers.authorization || "";
   if (!auth.startsWith("Bearer ")) return null;
@@ -223,7 +256,7 @@ async function authDesdeToken(req) {
   if (!payload) return null;
 
   const result = await pool.query(
-    "SELECT id, username FROM usuarios WHERE id = $1 AND username = $2 LIMIT 1",
+    "SELECT id, username, COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 AND username = $2 LIMIT 1",
     [payload.sub, payload.username],
   );
 
@@ -488,8 +521,8 @@ app.post("/api/auth/register", async (req, res) => {
 
     const passwordHash = empaquetarPasswordHash(password);
     const creado = await pool.query(
-      `INSERT INTO usuarios (username, email, ${PASSWORD_COLUMN_SQL}, ultimo_login) VALUES ($1, $2, $3, NOW()) RETURNING id, username, email`,
-      [username, email, passwordHash],
+      `INSERT INTO usuarios (username, email, ${PASSWORD_COLUMN_SQL}, ultimo_login, monedas) VALUES ($1, $2, $3, NOW(), $4) RETURNING id, username, email, COALESCE(monedas, 0) AS monedas`,
+      [username, email, passwordHash, COINS_INITIAL_BALANCE],
     );
 
     const user = creado.rows[0];
@@ -502,7 +535,7 @@ app.post("/api/auth/register", async (req, res) => {
 
     return res.status(201).json({
       ok: true,
-      user: { id: user.id, username: user.username, email: user.email },
+      user: { id: user.id, username: user.username, email: user.email, monedas: parseNumero(user.monedas, 0) },
       token,
     });
   } catch (error) {
@@ -524,7 +557,7 @@ app.post("/api/auth/login", async (req, res) => {
     }
 
     const result = await pool.query(
-      `SELECT id, username, email, ${PASSWORD_COLUMN_SQL} AS password_hash FROM usuarios WHERE username = $1 OR email = $1 LIMIT 1`,
+      `SELECT id, username, email, COALESCE(monedas, 0) AS monedas, ${PASSWORD_COLUMN_SQL} AS password_hash FROM usuarios WHERE username = $1 OR email = $1 LIMIT 1`,
       [username],
     );
 
@@ -555,7 +588,7 @@ app.post("/api/auth/login", async (req, res) => {
 
     return res.json({
       ok: true,
-      user: { id: user.id, username: user.username, email: user.email },
+      user: { id: user.id, username: user.username, email: user.email, monedas: parseNumero(user.monedas, 0) },
       token,
     });
   } catch (error) {
@@ -569,9 +602,105 @@ app.get("/api/auth/me", async (req, res) => {
     if (!user) {
       return res.status(401).json({ ok: false, error: "Sesion no valida" });
     }
-    return res.json({ ok: true, user });
+    return res.json({ ok: true, user: { ...user, monedas: parseNumero(user.monedas, 0) } });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
+  }
+});
+
+app.post('/api/coins/recompensa-diaria', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const user = await authDesdeToken(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const modoClave = String(req.body?.modoClave || req.body?.modo || '').trim().toLowerCase();
+    const dia = String(req.body?.dia || obtenerFechaMadrid()).slice(0, 10);
+    const premio = Math.max(0, parseNumero(req.body?.premio, 0));
+
+    if (!modoClave) return res.status(400).json({ ok: false, error: 'modoClave requerido' });
+    if (premio <= 0) return res.status(400).json({ ok: false, error: 'premio inválido' });
+
+    await client.query('BEGIN');
+
+    const yaOtorgada = await client.query(
+      'SELECT id FROM recompensas_diarias WHERE usuario_id = $1 AND dia = $2 AND modo_clave = $3 LIMIT 1',
+      [user.id, dia, modoClave],
+    );
+
+    if (yaOtorgada.rowCount > 0) {
+      const saldoActual = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 LIMIT 1', [user.id]);
+      await client.query('COMMIT');
+      return res.json({ ok: true, otorgado: false, monedas: parseNumero(saldoActual.rows[0]?.monedas, 0) });
+    }
+
+    await client.query(
+      'INSERT INTO recompensas_diarias (usuario_id, dia, modo_clave, premio) VALUES ($1, $2, $3, $4)',
+      [user.id, dia, modoClave, premio],
+    );
+
+    const saldo = await client.query(
+      'UPDATE usuarios SET monedas = COALESCE(monedas, 0) + $1 WHERE id = $2 RETURNING COALESCE(monedas, 0) AS monedas',
+      [premio, user.id],
+    );
+
+    await client.query(
+      `INSERT INTO monedas_movimientos (usuario_id, cambio, motivo, metadata)
+       VALUES ($1, $2, 'recompensa_diaria', $3::jsonb)`,
+      [user.id, premio, JSON.stringify({ dia, modoClave })],
+    );
+
+    await client.query('COMMIT');
+    return res.json({ ok: true, otorgado: true, premio, monedas: parseNumero(saldo.rows[0]?.monedas, 0) });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    return res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    client.release();
+  }
+});
+
+app.post('/api/coins/spend', async (req, res) => {
+  const client = await pool.connect();
+  try {
+    const user = await authDesdeToken(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const amount = Math.max(0, parseNumero(req.body?.amount, 0));
+    const reason = String(req.body?.reason || 'gasto').trim().toLowerCase();
+    if (amount <= 0) return res.status(400).json({ ok: false, error: 'amount inválido' });
+
+    await client.query('BEGIN');
+    const saldoRes = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 FOR UPDATE', [user.id]);
+    if (saldoRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ ok: false, error: 'Usuario no encontrado' });
+    }
+
+    const saldoActual = parseNumero(saldoRes.rows[0]?.monedas, 0);
+    if (saldoActual < amount) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ ok: false, error: 'Monedas insuficientes', monedas: saldoActual });
+    }
+
+    const updateRes = await client.query(
+      'UPDATE usuarios SET monedas = COALESCE(monedas, 0) - $1 WHERE id = $2 RETURNING COALESCE(monedas, 0) AS monedas',
+      [amount, user.id],
+    );
+
+    await client.query(
+      `INSERT INTO monedas_movimientos (usuario_id, cambio, motivo, metadata)
+       VALUES ($1, $2, $3, $4::jsonb)`,
+      [user.id, -amount, reason, JSON.stringify(req.body?.metadata || {})],
+    );
+
+    await client.query('COMMIT');
+    return res.json({ ok: true, monedas: parseNumero(updateRes.rows[0]?.monedas, 0) });
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
+    return res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -677,6 +806,11 @@ async function obtenerCartasPorRareza(rareza, limite = 100) {
   return res.rows;
 }
 
+async function obtenerCartaAleatoria() {
+  const res = await pool.query("SELECT id, nombre, imagen_url, rareza, club FROM cartas ORDER BY RANDOM() LIMIT 1");
+  return res.rows[0] || null;
+}
+
 function elegirAleatorias(array, count) {
   if (!Array.isArray(array) || array.length === 0) return [];
   const copy = array.slice();
@@ -727,6 +861,7 @@ app.post('/api/admin/upload-card', upload.single('file'), async (req, res) => {
 
 // Abrir sobre: genera cartas según configuración y guarda en user_cartas
 app.post('/api/shop/abrir-sobre', async (req, res) => {
+  const client = await pool.connect();
   try {
     const user = await authDesdeToken(req);
     if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
@@ -734,31 +869,53 @@ app.post('/api/shop/abrir-sobre', async (req, res) => {
     const sobreId = parseNumero(req.body?.sobreId, null);
     if (!sobreId) return res.status(400).json({ ok: false, error: 'sobreId requerido' });
 
-    const sobreRes = await pool.query('SELECT id, nombre, contenido_json FROM sobres WHERE id = $1 AND activo = TRUE LIMIT 1', [sobreId]);
-    if (sobreRes.rowCount === 0) return res.status(404).json({ ok: false, error: 'Sobre no encontrado' });
+    await client.query('BEGIN');
+
+    const sobreRes = await client.query('SELECT id, nombre, precio_monedas FROM sobres WHERE id = $1 AND activo = TRUE LIMIT 1', [sobreId]);
+    if (sobreRes.rowCount === 0) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ ok: false, error: 'Sobre no encontrado' });
+    }
     const sobre = sobreRes.rows[0];
 
-    const config = sobre.contenido_json || {};
-    const rarezas = Object.keys(config);
-    const cartasSeleccionadas = [];
-
-    for (const r of rarezas) {
-      const count = parseNumero(config[r], 0);
-      if (count <= 0) continue;
-      const disponibles = await obtenerCartasPorRareza(r, 1000);
-      const elegidas = elegirAleatorias(disponibles, count);
-      cartasSeleccionadas.push(...elegidas);
+    const saldoRes = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 FOR UPDATE', [user.id]);
+    const saldoActual = parseNumero(saldoRes.rows[0]?.monedas, 0);
+    const precioSobre = Math.max(0, parseNumero(sobre.precio_monedas, 0));
+    if (saldoActual < precioSobre) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ ok: false, error: 'Monedas insuficientes', monedas: saldoActual });
     }
+
+    const cartaAleatoria = await obtenerCartaAleatoria();
+    if (!cartaAleatoria) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ ok: false, error: 'No hay cartas disponibles para abrir sobres' });
+    }
+    const cartasSeleccionadas = [cartaAleatoria];
+
+    const saldoNuevoRes = await client.query(
+      'UPDATE usuarios SET monedas = COALESCE(monedas, 0) - $1 WHERE id = $2 RETURNING COALESCE(monedas, 0) AS monedas',
+      [precioSobre, user.id],
+    );
+    const saldoNuevo = parseNumero(saldoNuevoRes.rows[0]?.monedas, 0);
+
+    await client.query(
+      `INSERT INTO monedas_movimientos (usuario_id, cambio, motivo, metadata)
+       VALUES ($1, $2, 'compra_sobre', $3::jsonb)`,
+      [user.id, -precioSobre, JSON.stringify({ sobreId: sobre.id, nombre: sobre.nombre })],
+    );
 
     // Guardar en user_cartas (upsert)
     for (const c of cartasSeleccionadas) {
-      await pool.query(
+      await client.query(
         `INSERT INTO user_cartas (usuario_id, carta_id, cantidad, creado_en)
          VALUES ($1, $2, 1, NOW())
          ON CONFLICT (usuario_id, carta_id) DO UPDATE SET cantidad = user_cartas.cantidad + 1`,
         [user.id, c.id],
       );
     }
+
+    await client.query('COMMIT');
 
     console.log(`[ABRIR-SOBRE] Usuario ${user.username} abrió sobre ${sobre.id}`);
     console.log(`[ABRIR-SOBRE] Cartas seleccionadas: ${cartasSeleccionadas.length}`);
@@ -771,9 +928,12 @@ app.post('/api/shop/abrir-sobre', async (req, res) => {
       });
     }
 
-    return res.json({ ok: true, cartas: cartasSeleccionadas });
+    return res.json({ ok: true, cartas: cartasSeleccionadas, monedas_restantes: saldoNuevo });
   } catch (error) {
+    await client.query('ROLLBACK').catch(() => {});
     return res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    client.release();
   }
 });
 
@@ -1025,6 +1185,10 @@ validarAuthSchema().catch((error) => {
   console.error(
     "   El servidor está corriendo pero algunas funciones pueden no funcionar",
   );
+});
+
+asegurarSistemaMonedas().catch((error) => {
+  console.error("⚠️ Advertencia - Monedas setup falló:", error.message);
 });
 
 // Manejo global de errores no capturados

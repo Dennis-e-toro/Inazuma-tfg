@@ -15,8 +15,8 @@ async function run() {
        ($5, $6, $7, $8, TRUE)
        RETURNING id, nombre, portada_url`,
       [
-        'Sobre Aiden y Shawn', 100, JSON.stringify({ common: 3, rare: 1 }), '/sobres/aiden_y_shawn.png',
-        'Sobre Haizaki', 120, JSON.stringify({ common: 3, rare: 1 }), '/sobres/haizaki.png',
+        'Sobre Aiden y Shawn', 100, JSON.stringify({ random: 1 }), null,
+        'Sobre Haizaki', 120, JSON.stringify({ random: 1 }), null,
       ],
     );
     console.log('Insertados:', res.rows);
