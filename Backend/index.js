@@ -273,6 +273,35 @@ async function asegurarInventario() {
   }
 }
 
+async function migrarCartasLegadoAInventario() {
+  try {
+    const res = await pool.query(
+      `INSERT INTO inventario (usuario_id, item_tipo, item_key, nombre, imagen_url, rareza, cantidad, metadata)
+       SELECT
+         uc.usuario_id,
+         'carta' AS item_tipo,
+         uc.carta_id::text AS item_key,
+         c.nombre,
+         c.imagen_url,
+         c.rareza,
+         uc.cantidad,
+         jsonb_build_object('cartaId', c.id, 'club', c.club)
+       FROM user_cartas uc
+       JOIN cartas c ON c.id = uc.carta_id
+       WHERE NOT EXISTS (
+         SELECT 1
+         FROM inventario i
+         WHERE i.usuario_id = uc.usuario_id
+           AND i.item_tipo = 'carta'
+           AND i.item_key = uc.carta_id::text
+       )`,
+    );
+    console.log(`✓ Inventario legado migrado: ${res.rowCount || 0} cartas`);
+  } catch (error) {
+    console.error("⚠ Error en migrarCartasLegadoAInventario:", error.message);
+  }
+}
+
 async function guardarEnInventario(db, { usuarioId, itemTipo, itemKey, nombre, imagenUrl = null, rareza = null, cantidad = 1, metadata = {} }) {
   const cantidadNormalizada = Math.max(1, parseNumero(cantidad, 1));
   await db.query(
@@ -1303,6 +1332,10 @@ asegurarSistemaMonedas().catch((error) => {
 
 asegurarInventario().catch((error) => {
   console.error("⚠️ Advertencia - Inventario setup falló:", error.message);
+});
+
+migrarCartasLegadoAInventario().catch((error) => {
+  console.error("⚠️ Advertencia - Migración de inventario falló:", error.message);
 });
 
 // Manejo global de errores no capturados
