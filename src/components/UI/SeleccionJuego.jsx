@@ -1147,8 +1147,8 @@ export default function SeleccionJuego() {
                       ) : inventarioIconosFiltrados.map((item) => {
                         const equipado = perfilActual?.equippedAvatarId === item.item_key;
                         return (
-                        <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card">
-                          <div className="inventario-preview">
+                        <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card inventario-card-icon">
+                          <div className="inventario-preview inventario-preview-icon">
                             {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>👤</span>}
                             <span className="inventario-count">x{Math.max(1, Number(item.cantidad) || 0)}</span>
                           </div>

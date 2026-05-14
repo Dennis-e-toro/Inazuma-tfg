@@ -578,16 +578,16 @@
 
 .inventario-count {
   position: absolute;
-  right: 8px;
-  bottom: 8px;
+  right: 6px;
+  bottom: 6px;
   border-radius: 999px;
   border: 1px solid rgba(255, 226, 154, 0.86);
   background: linear-gradient(180deg, rgba(255, 199, 82, 0.96), rgba(237, 147, 24, 0.96));
   color: #fff;
   font-weight: 900;
-  font-size: 0.8rem;
+  font-size: 0.68rem;
   line-height: 1;
-  padding: 6px 10px;
+  padding: 4px 7px;
 }
 
 .inventario-card strong {
@@ -599,6 +599,25 @@
 .inventario-card small {
   color: #bde7ff;
   font-size: 0.72rem;
+}
+
+.inventario-card-icon {
+  justify-items: center;
+}
+
+.inventario-preview-icon {
+  width: 84px;
+  height: 84px;
+  aspect-ratio: auto;
+  margin: 0 auto;
+}
+
+.inventario-preview-icon img {
+  object-fit: contain;
+}
+
+.inventario-preview-icon span {
+  font-size: 36px;
 }
 
 .inventario-equip-btn {
