@@ -5,13 +5,8 @@ const { Pool } = pkg;
 
 // Las cartas que queremos insertar
 const cartas = [
-  { nombre: "UR - Aiden & Shawn", rareza: "ur", club: "Raimon", imagen: "/cartas/aiden_y_shawn.svg" },
-  { nombre: "UR - Haizaki", rareza: "ur", club: "Demonio", imagen: "/cartas/haizaki.svg" },
-  { nombre: "Rare - Kazemaru", rareza: "rare", club: "Raimon", imagen: "/cartas/kazemaru.svg" },
-  { nombre: "Rare - Tachimukai", rareza: "rare", club: "Raimon", imagen: "/cartas/tachimukai.svg" },
-  { nombre: "Common - Ichinose", rareza: "common", club: "Zeus", imagen: "/cartas/ichinose.svg" },
-  { nombre: "Common - Kariya", rareza: "common", club: "Raimon", imagen: "/cartas/kariya.svg" },
-  { nombre: "Common - Kido", rareza: "common", club: "Raimon", imagen: "/cartas/kido.svg" }
+  { nombre: "UR - Aiden & Shawn", rareza: "ur", club: "Raimon", imagen: "/cartas/aiden_y_shawn.png" },
+  { nombre: "UR - Haizaki", rareza: "ur", club: "Demonio", imagen: "/cartas/haizaki.png" }
 ];
 
 async function syncCartasToRemote() {
