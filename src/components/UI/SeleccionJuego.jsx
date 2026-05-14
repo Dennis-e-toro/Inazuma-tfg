@@ -539,37 +539,18 @@ export default function SeleccionJuego() {
     }
 
     let premioOtorgado = 0;
-    let yaCompletado = false;
     let progresoDespues = 0;
     let rachaDespues = 0;
     let monedasDespues = monedasActuales;
+    let bloqueadoDiario = false;
+    let mensajePanel = victoriaMensajeEvento || "Sigue jugando para completar el reto diario.";
 
-    actualizarPerfilActual((base) => {
-      const daily = { ...(base.dailyCompletions || {}) };
-      const hoyMap = { ...(daily[hoy] || {}) };
-      if (hoyMap[modoId]) {
-        yaCompletado = true;
-        progresoDespues = Object.values(hoyMap).filter(Boolean).length;
-        rachaDespues = calcularRachaDias(daily, hoy);
-        return base;
-      }
+    const dailyActual = { ...(perfilActual?.dailyCompletions || {}) };
+    const hoyMapActual = { ...(dailyActual[hoy] || {}) };
 
-      const segundos = Math.floor((Date.now() - partidaInicioTs) / 1000);
-      const premio = calcularRecompensa(segundos);
-      premioOtorgado = premio;
-
-      hoyMap[modoId] = true;
-      daily[hoy] = hoyMap;
-      progresoDespues = Object.values(hoyMap).filter(Boolean).length;
-      rachaDespues = calcularRachaDias(daily, hoy);
-
-      return {
-        ...base,
-        dailyCompletions: daily,
-      };
-    });
-
-    if (yaCompletado) {
+    if (hoyMapActual[modoId]) {
+      progresoDespues = Object.values(hoyMapActual).filter(Boolean).length;
+      rachaDespues = calcularRachaDias(dailyActual, hoy);
       lanzarToast("Este modo ya se completo hoy");
       setPanelVictoriaPorModo((prev) => ({
         ...prev,
@@ -580,6 +561,7 @@ export default function SeleccionJuego() {
           personajeNombre,
           personajeSprite,
           hideCharacter,
+          bloqueadoDiario: true,
           premio: 0,
           progreso: progresoDespues,
           progresoTotal: juegos.length,
@@ -591,6 +573,38 @@ export default function SeleccionJuego() {
       return;
     }
 
+    const segundos = Math.floor((Date.now() - partidaInicioTs) / 1000);
+    premioOtorgado = calcularRecompensa(segundos);
+
+    if (premioOtorgado <= 0) {
+      lanzarToast("No se pudo calcular una recompensa valida");
+      setPanelVictoriaPorModo((prev) => ({
+        ...prev,
+        [modoId]: {
+          titulo: victoriaTitulo,
+          modoId,
+          modoNombre,
+          personajeNombre,
+          personajeSprite,
+          hideCharacter,
+          bloqueadoDiario: false,
+          premio: 0,
+          progreso: Object.values(hoyMapActual).filter(Boolean).length,
+          progresoTotal: juegos.length,
+          racha: calcularRachaDias(dailyActual, hoy),
+          monedasTotales: monedasDespues,
+          mensaje: "No se pudo calcular la recompensa. Vuelve a intentarlo.",
+          lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
+        },
+      }));
+      return;
+    }
+
+    const hoyMapDespues = { ...hoyMapActual, [modoId]: true };
+    const dailyDespues = { ...dailyActual, [hoy]: hoyMapDespues };
+    progresoDespues = Object.values(hoyMapDespues).filter(Boolean).length;
+    rachaDespues = calcularRachaDias(dailyDespues, hoy);
+
     try {
       const res = await fetch(`${API_BASE}/api/coins/recompensa-diaria`, {
         method: "POST",
@@ -600,13 +614,33 @@ export default function SeleccionJuego() {
         },
         body: JSON.stringify({ modoClave, dia: hoy, premio: premioOtorgado }),
       });
-      const data = await res.json();
+      const text = await res.text();
+      const data = text ? JSON.parse(text) : null;
       if (!res.ok || !data?.ok) {
         premioOtorgado = 0;
         lanzarToast(data?.error || "No se pudo guardar la recompensa");
+        mensajePanel = "No se pudo guardar la recompensa. Puedes reintentarlo.";
       } else {
+        bloqueadoDiario = true;
         monedasDespues = Number(data.monedas) || 0;
         actualizarMonedasSesion(monedasDespues);
+        actualizarPerfilActual((base) => {
+          const daily = { ...(base.dailyCompletions || {}) };
+          const hoyMap = { ...(daily[hoy] || {}) };
+          hoyMap[modoId] = true;
+          daily[hoy] = hoyMap;
+          return {
+            ...base,
+            dailyCompletions: daily,
+          };
+        });
+
+        mensajePanel = victoriaMensajeEvento || (
+          progresoDespues >= juegos.length
+            ? "Completaste todos los modos diarios. Gran jornada."
+            : "Sigue jugando para completar el reto diario."
+        );
+
         if (!data.otorgado) {
           premioOtorgado = 0;
           lanzarToast("Este modo ya se recompenso hoy");
@@ -615,6 +649,7 @@ export default function SeleccionJuego() {
     } catch {
       premioOtorgado = 0;
       lanzarToast("No se pudo guardar la recompensa");
+      mensajePanel = "No se pudo guardar la recompensa. Puedes reintentarlo.";
     }
 
     if (premioOtorgado > 0) {
@@ -630,21 +665,17 @@ export default function SeleccionJuego() {
         personajeNombre,
         personajeSprite,
         hideCharacter,
-          bloqueadoDiario: true,
+        bloqueadoDiario,
         premio: premioOtorgado,
         progreso: progresoDespues,
         progresoTotal: juegos.length,
         racha: rachaDespues,
         monedasTotales: monedasDespues,
-        mensaje: victoriaMensajeEvento || (
-          progresoDespues >= juegos.length
-            ? "Completaste todos los modos diarios. Gran jornada."
-            : "Sigue jugando para completar el reto diario."
-        ),
+        mensaje: mensajePanel,
         lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
       },
     }));
-  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion]);
+  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, perfilActual, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion]);
 
   const reiniciarModoActual = () => {
     if (panelVictoriaActiva?.bloqueadoDiario) {
@@ -1187,39 +1218,35 @@ export default function SeleccionJuego() {
         <div className="sobre-modal">
           <div className={`sobre-modal-backdrop ${abrirSobreState.animando ? 'animando' : ''}`} onClick={() => { if (!abrirSobreState.animando) setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false }); }} />
           <div className="sobre-modal-body">
-            <h4>{abrirSobreState.sobre?.nombre || 'Sobre'}</h4>
             {abrirSobreState.animando ? (
               <div className="sobre-opening">
-                <div className="sobre-box">🎁</div>
-                <p>Abriendo...</p>
+                <img
+                  className="sobre-box-image"
+                  src={DEFAULT_SOBRE_PORTADA}
+                  alt="Sobre"
+                  aria-hidden="true"
+                />
               </div>
             ) : (
               <div className="sobre-result">
-                {abrirSobreState.cartas.length === 0 ? <p>No se obtuvieron cartas.</p> : (
+                {abrirSobreState.cartas.length > 0 && (
                   <div className="cartas-list">
                     {abrirSobreState.cartas.map((c) => (
                       <div key={c.id} className="carta-card">
-                        {c.imagen_src ? (
-                          <img 
-                            src={c.imagen_src} 
-                            alt={c.nombre}
-                            onError={(e) => {
-                              console.error(`❌ Error loading carta image for ${c.nombre}:`, e);
-                              e.currentTarget.style.display = 'none';
-                            }}
-                            onLoad={() => console.log(`✓ Carta image loaded: ${c.nombre}`)}
-                          />
-                        ) : (
-                          <div className="carta-placeholder">?</div>
-                        )}
-                        <strong>{c.nombre}</strong>
-                        <small>{c.rareza}</small>
+                        <img 
+                          src={c.imagen_src || DEFAULT_SOBRE_PORTADA} 
+                          alt="Carta obtenida"
+                          onError={(e) => {
+                            console.error(`❌ Error loading carta image for ${c.nombre}:`, e);
+                            e.currentTarget.src = DEFAULT_SOBRE_PORTADA;
+                          }}
+                        />
                       </div>
                     ))}
                   </div>
                 )}
                 <div className="perfil-actions">
-                  <button type="button" onClick={() => setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false })}>Cerrar</button>
+                  <button type="button" aria-label="Cerrar" onClick={() => setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false })}>×</button>
                 </div>
               </div>
             )}
