@@ -140,6 +140,7 @@ export default function SeleccionJuego() {
   const [tiendaSaga, setTiendaSaga] = useState("all");
   const [tiendaClub, setTiendaClub] = useState("all");
   const [tiendaSeccion, setTiendaSeccion] = useState("avatares");
+  const [inventarioSeccion, setInventarioSeccion] = useState("cartas");
   const [sobresCatalogo, setSobresCatalogo] = useState([]);
   const [sobresCargando, setSobresCargando] = useState(false);
   const [inventarioCartas, setInventarioCartas] = useState([]);
@@ -183,6 +184,16 @@ export default function SeleccionJuego() {
   const avatarSeleccionado = perfilActual
     ? avatarCatalogo.find((a) => a.id === perfilActual.equippedAvatarId) || avatarCatalogo[0]
     : null;
+
+  const inventarioCartasFiltradas = useMemo(
+    () => inventarioCartas.filter((item) => item.item_tipo === "carta"),
+    [inventarioCartas],
+  );
+
+  const inventarioIconosFiltrados = useMemo(
+    () => inventarioCartas.filter((item) => item.item_tipo === "avatar"),
+    [inventarioCartas],
+  );
 
   const opcionesSaga = useMemo(() => {
     const sagas = [...new Set(avatarCatalogo.map((a) => a.saga).filter(Boolean))];
@@ -1069,7 +1080,7 @@ export default function SeleccionJuego() {
                   <div className="perfil-hero-copy">
                     <span className="perfil-kicker">Inventario</span>
                     <h3>Tus cartas e iconos</h3>
-                    <p>Todo lo que saques de los sobres o compres como icono queda guardado aquí con su cantidad total.</p>
+                    <p>Separa tu colección por cartas e iconos para encontrar y equipar todo más rápido.</p>
                   </div>
                   <div className="perfil-hero-chip">
                     <span>Piezas</span>
@@ -1077,30 +1088,82 @@ export default function SeleccionJuego() {
                   </div>
                 </div>
 
+                <div className="shop-tabs" role="tablist" aria-label="Secciones del inventario">
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={inventarioSeccion === "cartas"}
+                    className={inventarioSeccion === "cartas" ? "shop-tab shop-tab-active" : "shop-tab"}
+                    onClick={() => setInventarioSeccion("cartas")}
+                  >
+                    Cartas
+                  </button>
+                  <button
+                    type="button"
+                    role="tab"
+                    aria-selected={inventarioSeccion === "iconos"}
+                    className={inventarioSeccion === "iconos" ? "shop-tab shop-tab-active" : "shop-tab"}
+                    onClick={() => setInventarioSeccion("iconos")}
+                  >
+                    Iconos
+                  </button>
+                </div>
+
                 <div className="perfil-section perfil-section-shop-grid">
                   <div className="perfil-section-head">
-                    <h4>Colección</h4>
-                    <p>Una entrada por objeto con su cantidad acumulada.</p>
+                    <h4>{inventarioSeccion === "cartas" ? "Colección de cartas" : "Iconos en propiedad"}</h4>
+                    <p>
+                      {inventarioSeccion === "cartas"
+                        ? "Las cartas aparecen una sola vez y muestran su cantidad total."
+                        : "Los iconos comprados aparecen aquí y puedes equiparlos directamente."}
+                    </p>
                   </div>
 
                   {inventarioCargando ? (
                     <div>Cargando inventario...</div>
                   ) : inventarioError ? (
                     <div>{inventarioError}</div>
-                  ) : inventarioCartas.length === 0 ? (
-                    <div>Aún no tienes objetos en el inventario.</div>
+                  ) : inventarioSeccion === "cartas" ? (
+                    inventarioCartasFiltradas.length === 0 ? (
+                      <div>Aún no tienes cartas en el inventario.</div>
+                    ) : (
+                      <div className="inventario-grid">
+                        {inventarioCartasFiltradas.map((item) => (
+                          <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card">
+                            <div className="inventario-preview">
+                              {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>🃏</span>}
+                              <span className="inventario-count">x{Math.max(1, Number(item.cantidad) || 0)}</span>
+                            </div>
+                            <strong>{item.nombre}</strong>
+                            <small>{String(item.rareza || "common").toUpperCase()}</small>
+                          </article>
+                        ))}
+                      </div>
+                    )
                   ) : (
                     <div className="inventario-grid">
-                      {inventarioCartas.map((item) => (
+                      {inventarioIconosFiltrados.length === 0 ? (
+                        <div>Aún no tienes iconos en el inventario.</div>
+                      ) : inventarioIconosFiltrados.map((item) => {
+                        const equipado = perfilActual?.equippedAvatarId === item.item_key;
+                        return (
                         <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card">
                           <div className="inventario-preview">
-                            {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>🃏</span>}
+                            {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>👤</span>}
                             <span className="inventario-count">x{Math.max(1, Number(item.cantidad) || 0)}</span>
                           </div>
                           <strong>{item.nombre}</strong>
-                          <small>{String(item.item_tipo || "item").toUpperCase()}</small>
+                          <small>ICONO</small>
+                          {equipado ? (
+                            <span className="avatar-equipped">Equipado</span>
+                          ) : (
+                            <button type="button" className="inventario-equip-btn" onClick={() => equiparAvatar(item.item_key)}>
+                              Equipar
+                            </button>
+                          )}
                         </article>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

@@ -601,6 +601,20 @@
   font-size: 0.72rem;
 }
 
+.inventario-equip-btn {
+  border-radius: 10px;
+  border: 1px solid rgba(171, 230, 255, 0.42);
+  background: rgba(8, 50, 86, 0.92);
+  color: #ebf9ff;
+  padding: 8px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+
+.inventario-equip-btn:hover {
+  border-color: rgba(145, 230, 255, 0.65);
+}
+
 .perfil-section-shop-grid .sobre-card {
   border-radius: 16px;
   border: 1px solid rgba(171, 230, 255, 0.24);
