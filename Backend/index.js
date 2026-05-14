@@ -246,6 +246,59 @@ async function asegurarSistemaMonedas() {
   }
 }
 
+async function asegurarInventario() {
+  try {
+    await pool.query(
+      `CREATE TABLE IF NOT EXISTS inventario (
+        id BIGSERIAL PRIMARY KEY,
+        usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+        item_tipo TEXT NOT NULL,
+        item_key TEXT NOT NULL,
+        nombre TEXT NOT NULL,
+        imagen_url TEXT,
+        rareza TEXT,
+        cantidad INTEGER NOT NULL DEFAULT 1,
+        metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+        creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        UNIQUE (usuario_id, item_tipo, item_key),
+        CONSTRAINT inventario_cantidad_chk CHECK (cantidad > 0)
+      )`,
+    );
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_inventario_usuario ON inventario (usuario_id)");
+    await pool.query("CREATE INDEX IF NOT EXISTS idx_inventario_tipo ON inventario (usuario_id, item_tipo)");
+    console.log("✓ Inventario validado");
+  } catch (error) {
+    console.error("⚠ Error en asegurarInventario:", error.message);
+  }
+}
+
+async function guardarEnInventario(db, { usuarioId, itemTipo, itemKey, nombre, imagenUrl = null, rareza = null, cantidad = 1, metadata = {} }) {
+  const cantidadNormalizada = Math.max(1, parseNumero(cantidad, 1));
+  await db.query(
+    `INSERT INTO inventario (usuario_id, item_tipo, item_key, nombre, imagen_url, rareza, cantidad, metadata, creado_en, actualizado_en)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, NOW(), NOW())
+     ON CONFLICT (usuario_id, item_tipo, item_key)
+     DO UPDATE SET
+       nombre = COALESCE(EXCLUDED.nombre, inventario.nombre),
+       imagen_url = COALESCE(EXCLUDED.imagen_url, inventario.imagen_url),
+       rareza = COALESCE(EXCLUDED.rareza, inventario.rareza),
+       cantidad = inventario.cantidad + EXCLUDED.cantidad,
+       metadata = inventario.metadata || EXCLUDED.metadata,
+       actualizado_en = NOW()`,
+    [
+      usuarioId,
+      itemTipo,
+      String(itemKey),
+      String(nombre || itemKey),
+      imagenUrl,
+      rareza,
+      cantidadNormalizada,
+      JSON.stringify(metadata || {}),
+    ],
+  );
+}
+
 async function authDesdeToken(req, db = pool) {
   const auth = req.headers.authorization || "";
   if (!auth.startsWith("Bearer ")) return null;
@@ -696,6 +749,19 @@ app.post('/api/coins/spend', async (req, res) => {
       [user.id, -amount, reason, JSON.stringify(req.body?.metadata || {})],
     );
 
+    if (reason === 'compra_avatar' && req.body?.metadata?.avatarId) {
+      await guardarEnInventario(client, {
+        usuarioId: user.id,
+        itemTipo: 'avatar',
+        itemKey: req.body.metadata.avatarId,
+        nombre: req.body.metadata.nombre || req.body.metadata.avatarNombre || req.body.metadata.avatarId,
+        imagenUrl: req.body.metadata.imagenUrl || req.body.metadata.src || null,
+        rareza: req.body.metadata.rareza || null,
+        cantidad: 1,
+        metadata: req.body?.metadata || {},
+      });
+    }
+
     await client.query('COMMIT');
     return res.json({ ok: true, monedas: parseNumero(updateRes.rows[0]?.monedas, 0) });
   } catch (error) {
@@ -834,6 +900,36 @@ app.get('/api/shop/sobres', async (req, res) => {
   }
 });
 
+async function obtenerInventarioUsuario(req, res) {
+  try {
+    const user = await authDesdeToken(req);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const result = await pool.query(
+      `SELECT
+        item_tipo,
+        item_key,
+        nombre,
+        imagen_url,
+        rareza,
+        cantidad,
+        metadata,
+        actualizado_en
+       FROM inventario
+       WHERE usuario_id = $1
+       ORDER BY cantidad DESC, item_tipo ASC, nombre ASC`,
+      [user.id],
+    );
+
+    return res.json({ ok: true, inventario: result.rows });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error.message });
+  }
+}
+
+app.get('/api/inventario', obtenerInventarioUsuario);
+app.get('/api/shop/inventario', obtenerInventarioUsuario);
+
 // Admin: subir carta (usa Cloudinary) - requiere ADMIN_KEY header 'x-admin-key'
 app.post('/api/admin/upload-card', upload.single('file'), async (req, res) => {
   try {
@@ -916,6 +1012,17 @@ app.post('/api/shop/abrir-sobre', async (req, res) => {
          ON CONFLICT (usuario_id, carta_id) DO UPDATE SET cantidad = user_cartas.cantidad + 1`,
         [user.id, c.id],
       );
+
+      await guardarEnInventario(client, {
+        usuarioId: user.id,
+        itemTipo: 'carta',
+        itemKey: String(c.id),
+        nombre: c.nombre,
+        imagenUrl: c.imagen_url,
+        rareza: c.rareza,
+        cantidad: 1,
+        metadata: { cartaId: c.id, club: c.club || null },
+      });
     }
 
     await client.query('COMMIT');
@@ -1192,6 +1299,10 @@ validarAuthSchema().catch((error) => {
 
 asegurarSistemaMonedas().catch((error) => {
   console.error("⚠️ Advertencia - Monedas setup falló:", error.message);
+});
+
+asegurarInventario().catch((error) => {
+  console.error("⚠️ Advertencia - Inventario setup falló:", error.message);
 });
 
 // Manejo global de errores no capturados

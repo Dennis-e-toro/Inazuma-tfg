@@ -5,6 +5,8 @@
 }
 
 .ap-panel {
+  position: relative;
+  z-index: 1;
   width: min(1180px, 100%);
   border-radius: 18px;
   padding: 20px;
@@ -31,6 +33,7 @@
 
 .ap-search {
   position: relative;
+  z-index: 20;
   display: flex;
   gap: 10px;
   justify-content: center;
@@ -75,7 +78,7 @@
   background: rgba(7, 26, 49, 0.96);
   border-radius: 12px;
   border: 1px solid rgba(187, 216, 247, 0.28);
-  z-index: 40;
+  z-index: 120;
   box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35);
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);

@@ -142,6 +142,9 @@ export default function SeleccionJuego() {
   const [tiendaSeccion, setTiendaSeccion] = useState("avatares");
   const [sobresCatalogo, setSobresCatalogo] = useState([]);
   const [sobresCargando, setSobresCargando] = useState(false);
+  const [inventarioCartas, setInventarioCartas] = useState([]);
+  const [inventarioCargando, setInventarioCargando] = useState(false);
+  const [inventarioError, setInventarioError] = useState("");
   const [abrirSobreState, setAbrirSobreState] = useState({ abierto: false, sobre: null, cartas: [], animando: false });
   const [toastMonedas, setToastMonedas] = useState("");
   const [panelVictoriaPorModo, setPanelVictoriaPorModo] = useState({});
@@ -711,7 +714,19 @@ export default function SeleccionJuego() {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${sesion.token}`,
         },
-        body: JSON.stringify({ amount: avatar.precio, reason: 'compra_avatar', metadata: { avatarId: avatar.id } }),
+        body: JSON.stringify({
+          amount: avatar.precio,
+          reason: 'compra_avatar',
+          metadata: {
+            avatarId: avatar.id,
+            nombre: avatar.nombre,
+            imagenUrl: avatar.src,
+            src: avatar.src,
+            rareza: 'avatar',
+            saga: avatar.saga,
+            club: avatar.club,
+          },
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
@@ -719,6 +734,7 @@ export default function SeleccionJuego() {
       }
 
       actualizarMonedasSesion(data.monedas);
+      void cargarInventarioCartas();
     } catch {
       return lanzarToast('Error de red al comprar avatar');
     }
@@ -728,6 +744,43 @@ export default function SeleccionJuego() {
       ownedAvatarIds: [...new Set([...(base.ownedAvatarIds || ["starter"]), avatar.id])],
     }));
   };
+
+  const cargarInventarioCartas = useCallback(async () => {
+    if (!sesion?.token) {
+      setInventarioCartas([]);
+      setInventarioError("");
+      setInventarioCargando(false);
+      return;
+    }
+
+    setInventarioCargando(true);
+    setInventarioError("");
+
+    try {
+      const res = await fetch(`${API_BASE}/api/inventario`, {
+        headers: { Authorization: `Bearer ${sesion.token}` },
+      });
+      const data = await res.json();
+      if (!res.ok || !data?.ok) {
+        setInventarioError(data?.error || "No se pudo cargar tu inventario");
+        setInventarioCartas([]);
+        return;
+      }
+
+      const lista = (data.inventario || []).map((c) => ({
+        ...c,
+        cantidad: Math.max(0, Number(c.cantidad) || 0),
+        imagen_src: normalizarImagenCarta({ imagen_url: c.imagen_url || c.metadata?.imagenUrl || c.metadata?.src }),
+      }));
+
+      setInventarioCartas(lista);
+    } catch {
+      setInventarioError("No se pudo cargar tu inventario");
+      setInventarioCartas([]);
+    } finally {
+      setInventarioCargando(false);
+    }
+  }, [sesion?.token]);
 
   const comprarSobre = async (sobre) => {
     if (!perfilActual) return;
@@ -755,6 +808,7 @@ export default function SeleccionJuego() {
           return { ...c, imagen_src };
         });
         setAbrirSobreState({ abierto: true, sobre, cartas, animando: false });
+        void cargarInventarioCartas();
       } else {
         lanzarToast(data?.error || 'Error abriendo sobre');
         setAbrirSobreState({ abierto: false, sobre: null, cartas: [], animando: false });
@@ -774,6 +828,11 @@ export default function SeleccionJuego() {
   };
 
   const ComponenteJuego = juegoActivo.componente;
+
+  useEffect(() => {
+    if (!authAbierto || authModo !== "inventario") return;
+    void cargarInventarioCartas();
+  }, [authAbierto, authModo, cargarInventarioCartas]);
 
   return (
     <div className="seleccion-container">
@@ -999,8 +1058,56 @@ export default function SeleccionJuego() {
 
                 <div className="perfil-actions">
                   <button type="button" onClick={() => setAuthModo("tienda")}>Tienda</button>
+                  <button type="button" onClick={() => setAuthModo("inventario")}>Inventario</button>
                   <button type="button" onClick={() => setAuthAbierto(false)}>Cerrar</button>
                   <button type="button" onClick={cerrarSesion}>Cerrar sesión</button>
+                </div>
+              </div>
+            ) : authModo === "inventario" && sesion ? (
+              <div className="cuenta-panel">
+                <div className="perfil-hero perfil-hero-shop">
+                  <div className="perfil-hero-copy">
+                    <span className="perfil-kicker">Inventario</span>
+                    <h3>Tus cartas e iconos</h3>
+                    <p>Todo lo que saques de los sobres o compres como icono queda guardado aquí con su cantidad total.</p>
+                  </div>
+                  <div className="perfil-hero-chip">
+                    <span>Piezas</span>
+                    <strong>{inventarioCartas.reduce((acc, item) => acc + (Number(item.cantidad) || 0), 0)}</strong>
+                  </div>
+                </div>
+
+                <div className="perfil-section perfil-section-shop-grid">
+                  <div className="perfil-section-head">
+                    <h4>Colección</h4>
+                    <p>Una entrada por objeto con su cantidad acumulada.</p>
+                  </div>
+
+                  {inventarioCargando ? (
+                    <div>Cargando inventario...</div>
+                  ) : inventarioError ? (
+                    <div>{inventarioError}</div>
+                  ) : inventarioCartas.length === 0 ? (
+                    <div>Aún no tienes objetos en el inventario.</div>
+                  ) : (
+                    <div className="inventario-grid">
+                      {inventarioCartas.map((item) => (
+                        <article key={`${item.item_tipo}-${item.item_key}`} className="inventario-card">
+                          <div className="inventario-preview">
+                            {item.imagen_src ? <img src={item.imagen_src} alt={item.nombre} /> : <span>🃏</span>}
+                            <span className="inventario-count">x{Math.max(1, Number(item.cantidad) || 0)}</span>
+                          </div>
+                          <strong>{item.nombre}</strong>
+                          <small>{String(item.item_tipo || "item").toUpperCase()}</small>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="perfil-actions">
+                  <button type="button" onClick={() => setAuthModo("cuenta")}>Volver</button>
+                  <button type="button" onClick={() => setAuthAbierto(false)}>Cerrar</button>
                 </div>
               </div>
             ) : authModo === "tienda" && sesion ? (
@@ -1038,35 +1145,37 @@ export default function SeleccionJuego() {
                   </button>
                 </div>
 
-                <div className="perfil-section">
-                  <div className="perfil-section-head">
-                    <h4>Filtros de avatares</h4>
-                    <p>Úsalos solo para el catálogo de avatares.</p>
-                  </div>
-                  <div className="shop-filters">
-                    <label>
-                      Saga
-                      <select value={tiendaSaga} onChange={(e) => setTiendaSaga(e.target.value)}>
-                        {opcionesSaga.map((s) => (
-                          <option key={s} value={s}>
-                            {s === "all" ? "Todas" : s.toUpperCase()}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                {tiendaSeccion === "avatares" && (
+                  <div className="perfil-section">
+                    <div className="perfil-section-head">
+                      <h4>Filtros de avatares</h4>
+                      <p>Úsalos solo para el catálogo de avatares.</p>
+                    </div>
+                    <div className="shop-filters">
+                      <label>
+                        Saga
+                        <select value={tiendaSaga} onChange={(e) => setTiendaSaga(e.target.value)}>
+                          {opcionesSaga.map((s) => (
+                            <option key={s} value={s}>
+                              {s === "all" ? "Todas" : s.toUpperCase()}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
 
-                    <label>
-                      Equipo
-                      <select value={tiendaClub} onChange={(e) => setTiendaClub(e.target.value)}>
-                        {opcionesClub.map((c) => (
-                          <option key={c} value={c}>
-                            {c === "all" ? "Todos" : formatearClub(c)}
-                          </option>
-                        ))}
-                      </select>
-                    </label>
+                      <label>
+                        Equipo
+                        <select value={tiendaClub} onChange={(e) => setTiendaClub(e.target.value)}>
+                          {opcionesClub.map((c) => (
+                            <option key={c} value={c}>
+                              {c === "all" ? "Todos" : formatearClub(c)}
+                            </option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
                   </div>
-                </div>
+                )}
 
                 {tiendaSeccion === "avatares" ? (
                   <div className="perfil-section perfil-section-shop-grid">
@@ -1105,7 +1214,7 @@ export default function SeleccionJuego() {
                       })}
                     </div>
                   </div>
-                ) : (
+                ) : tiendaSeccion === "sobres" ? (
                   <div className="perfil-section perfil-section-shop-grid">
                     <div className="perfil-section-head">
                       <h4>Sobres de prueba</h4>
@@ -1140,6 +1249,38 @@ export default function SeleccionJuego() {
                         ))
                       )}
                     </div>
+                  </div>
+                ) : (
+                  <div className="perfil-section perfil-section-shop-grid">
+                    <div className="perfil-section-head">
+                      <h4>Tu inventario</h4>
+                      <p>Copias totales: {inventarioCartas.reduce((acc, c) => acc + (Number(c.cantidad) || 0), 0)}</p>
+                    </div>
+
+                    {inventarioCargando ? (
+                      <div>Cargando inventario...</div>
+                    ) : inventarioError ? (
+                      <div>{inventarioError}</div>
+                    ) : inventarioCartas.length === 0 ? (
+                      <div>Aún no tienes cartas. Abre un sobre para empezar.</div>
+                    ) : (
+                      <div className="inventario-grid">
+                        {inventarioCartas.map((c) => (
+                          <article key={c.carta_id || c.id} className="inventario-card">
+                            <div className="inventario-preview">
+                              {c.imagen_src ? (
+                                <img src={c.imagen_src} alt={c.nombre || "Carta"} />
+                              ) : (
+                                <span>🃏</span>
+                              )}
+                              <span className="inventario-count">x{Math.max(1, Number(c.cantidad) || 0)}</span>
+                            </div>
+                            <strong>{c.nombre || `Carta ${c.carta_id || "?"}`}</strong>
+                            <small>{String(c.rareza || "common").toUpperCase()}</small>
+                          </article>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

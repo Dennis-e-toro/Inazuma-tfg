@@ -211,6 +211,25 @@ CREATE TABLE IF NOT EXISTS user_cartas (
   UNIQUE (usuario_id, carta_id)
 );
 
+CREATE TABLE IF NOT EXISTS inventario (
+  id BIGSERIAL PRIMARY KEY,
+  usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
+  item_tipo TEXT NOT NULL,
+  item_key TEXT NOT NULL,
+  nombre TEXT NOT NULL,
+  imagen_url TEXT,
+  rareza TEXT,
+  cantidad INTEGER NOT NULL DEFAULT 1,
+  metadata JSONB NOT NULL DEFAULT '{}'::jsonb,
+  creado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  UNIQUE (usuario_id, item_tipo, item_key),
+  CONSTRAINT inventario_cantidad_chk CHECK (cantidad > 0)
+);
+
+CREATE INDEX IF NOT EXISTS idx_inventario_usuario ON inventario (usuario_id);
+CREATE INDEX IF NOT EXISTS idx_inventario_tipo ON inventario (usuario_id, item_tipo);
+
 CREATE TABLE IF NOT EXISTS sobres_compras (
   id BIGSERIAL PRIMARY KEY,
   usuario_id BIGINT NOT NULL REFERENCES usuarios(id) ON DELETE CASCADE,
