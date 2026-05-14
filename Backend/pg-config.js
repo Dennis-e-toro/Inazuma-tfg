@@ -20,11 +20,12 @@ export function createPgConfig() {
       ssl: {
         rejectUnauthorized: false,
       },
-      // Aumentar timeouts para Railway/Neon que puede ser lento
-      connectionTimeoutMillis: 60000,
-      idleTimeoutMillis: 60000,
-      max: 20,
-      statement_timeout: 60000,
+      // Config conservadora para planes con limite bajo de conexiones
+      connectionTimeoutMillis: Number(process.env.PG_CONNECT_TIMEOUT_MS || 30000),
+      idleTimeoutMillis: Number(process.env.PG_IDLE_TIMEOUT_MS || 30000),
+      max: Number(process.env.PGPOOL_MAX || 5),
+      statement_timeout: Number(process.env.PG_STATEMENT_TIMEOUT_MS || 60000),
+      keepAlive: true,
       application_name: "Inazuma-Backend",
     };
   }

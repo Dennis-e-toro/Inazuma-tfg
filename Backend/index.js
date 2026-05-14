@@ -246,7 +246,7 @@ async function asegurarSistemaMonedas() {
   }
 }
 
-async function authDesdeToken(req) {
+async function authDesdeToken(req, db = pool) {
   const auth = req.headers.authorization || "";
   if (!auth.startsWith("Bearer ")) return null;
   const token = auth.slice(7).trim();
@@ -255,7 +255,7 @@ async function authDesdeToken(req) {
   const payload = leerTokenAuth(token);
   if (!payload) return null;
 
-  const result = await pool.query(
+  const result = await db.query(
     "SELECT id, username, COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 AND username = $2 LIMIT 1",
     [payload.sub, payload.username],
   );
@@ -609,9 +609,10 @@ app.get("/api/auth/me", async (req, res) => {
 });
 
 app.post('/api/coins/recompensa-diaria', async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    const user = await authDesdeToken(req);
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
     if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
 
     const modoClave = String(req.body?.modoClave || req.body?.modo || '').trim().toLowerCase();
@@ -653,17 +654,18 @@ app.post('/api/coins/recompensa-diaria', async (req, res) => {
     await client.query('COMMIT');
     return res.json({ ok: true, otorgado: true, premio, monedas: parseNumero(saldo.rows[0]?.monedas, 0) });
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (client) await client.query('ROLLBACK').catch(() => {});
     return res.status(500).json({ ok: false, error: error.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
 app.post('/api/coins/spend', async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    const user = await authDesdeToken(req);
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
     if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
 
     const amount = Math.max(0, parseNumero(req.body?.amount, 0));
@@ -697,10 +699,10 @@ app.post('/api/coins/spend', async (req, res) => {
     await client.query('COMMIT');
     return res.json({ ok: true, monedas: parseNumero(updateRes.rows[0]?.monedas, 0) });
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (client) await client.query('ROLLBACK').catch(() => {});
     return res.status(500).json({ ok: false, error: error.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
@@ -861,9 +863,10 @@ app.post('/api/admin/upload-card', upload.single('file'), async (req, res) => {
 
 // Abrir sobre: genera cartas según configuración y guarda en user_cartas
 app.post('/api/shop/abrir-sobre', async (req, res) => {
-  const client = await pool.connect();
+  let client;
   try {
-    const user = await authDesdeToken(req);
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
     if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
 
     const sobreId = parseNumero(req.body?.sobreId, null);
@@ -930,10 +933,10 @@ app.post('/api/shop/abrir-sobre', async (req, res) => {
 
     return res.json({ ok: true, cartas: cartasSeleccionadas, monedas_restantes: saldoNuevo });
   } catch (error) {
-    await client.query('ROLLBACK').catch(() => {});
+    if (client) await client.query('ROLLBACK').catch(() => {});
     return res.status(500).json({ ok: false, error: error.message });
   } finally {
-    client.release();
+    if (client) client.release();
   }
 });
 
