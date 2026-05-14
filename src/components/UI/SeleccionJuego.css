@@ -591,10 +591,10 @@
 }
 
 .inventario-count-card {
-  right: 4px;
-  bottom: 4px;
-  font-size: 0.58rem;
-  padding: 3px 6px;
+  right: 3px;
+  bottom: 3px;
+  font-size: 0.5rem;
+  padding: 2px 5px;
 }
 
 .inventario-card strong {

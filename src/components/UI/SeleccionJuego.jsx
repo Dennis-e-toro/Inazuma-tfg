@@ -848,6 +848,21 @@ export default function SeleccionJuego() {
   const ComponenteJuego = juegoActivo.componente;
 
   useEffect(() => {
+    if (!panelVictoriaActiva?.bloqueadoDiario) return;
+    const modoId = panelVictoriaActiva.modoId || juegoActivo.id;
+    const timer = setTimeout(() => {
+      setPanelVictoriaPorModo((prev) => {
+        if (!prev[modoId]) return prev;
+        const next = { ...prev };
+        delete next[modoId];
+        return next;
+      });
+    }, 2000);
+
+    return () => clearTimeout(timer);
+  }, [panelVictoriaActiva, juegoActivo.id]);
+
+  useEffect(() => {
     if (!authAbierto || authModo !== "inventario") return;
     void cargarInventarioCartas();
   }, [authAbierto, authModo, cargarInventarioCartas]);
@@ -1087,7 +1102,6 @@ export default function SeleccionJuego() {
                   <div className="perfil-hero-copy">
                     <span className="perfil-kicker">Inventario</span>
                     <h3>Tus cartas e iconos</h3>
-                    <p>Separa tu colección por cartas e iconos para encontrar y equipar todo más rápido.</p>
                   </div>
                   <div className="perfil-hero-chip">
                     <span>Piezas</span>
