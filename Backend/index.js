@@ -557,8 +557,8 @@ async function obtenerRankingDiario(modoClave, dia, limite = 10) {
   }
 
   const maximo = Math.min(Math.max(parseNumero(limite, 10), 1), 10);
-  // All modes now rank by puntuacion DESC (rewards overall performance: fewer attempts, fewer hints, less time).
-  // Time is a tiebreaker for users with equal score.
+  // All modes: rank by time (who completed fastest = best). Puntuacion as tiebreaker.
+  // (Less time = more puntos, because puntos penalize time: 1000 - floor(tiempoMs/1000))
   const sql = `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
                FROM intentos_diarios i
                JOIN usuarios u ON u.id = i.usuario_id
@@ -566,7 +566,7 @@ async function obtenerRankingDiario(modoClave, dia, limite = 10) {
                  AND i.dia = $2
                  AND i.completado = TRUE
                  AND i.acertado = TRUE
-               ORDER BY i.puntuacion DESC, i.tiempo_ms ASC NULLS LAST, i.fin ASC NULLS LAST, u.username ASC
+               ORDER BY i.tiempo_ms ASC NULLS LAST, i.puntuacion DESC, i.fin ASC NULLS LAST, u.username ASC
                LIMIT $3`;
   const params = [modo.id, dia, maximo];
   const result = await pool.query(sql, params);
