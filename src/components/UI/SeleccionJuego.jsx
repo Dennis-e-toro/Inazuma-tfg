@@ -573,7 +573,26 @@ export default function SeleccionJuego() {
     const hoyMapActual = { ...(dailyActual[hoy] || {}) };
 
     if (hoyMapActual[modoId]) {
-      // Ya completado hoy: no mostrar notificaciones ni paneles repetitivos.
+      // Ya completado hoy: mostrar panel informativo (ocultando la imagen del personaje)
+      setPanelVictoriaPorModo((prev) => ({
+        ...prev,
+        [modoId]: {
+          titulo: victoriaTitulo,
+          modoId,
+          modoNombre,
+          personajeNombre,
+          personajeSprite,
+          hideCharacter: true,
+          bloqueadoDiario: true,
+          premio: 0,
+          progreso: Object.values(hoyMapActual).filter(Boolean).length,
+          progresoTotal: juegos.length,
+          racha: calcularRachaDias(dailyActual, hoy),
+          monedasTotales: monedasActuales,
+          mensaje: "Ya completaste este modo hoy. Vuelve mañana.",
+          lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
+        },
+      }));
       return;
     }
 
