@@ -557,31 +557,18 @@ async function obtenerRankingDiario(modoClave, dia, limite = 10) {
   }
 
   const maximo = Math.min(Math.max(parseNumero(limite, 10), 1), 10);
-  // Include entries even if tiempo_ms is NULL (so ranking shows entries),
-  // and for cuadricula order by puntuacion DESC primarily.
-  let sql;
-  let params = [modo.id, dia, maximo];
-  if ((modo.clave || '').toLowerCase() === 'cuadricula') {
-    sql = `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
-           FROM intentos_diarios i
-           JOIN usuarios u ON u.id = i.usuario_id
-           WHERE i.modo_juego_id = $1
-             AND i.dia = $2
-             AND i.completado = TRUE
-             AND i.acertado = TRUE
-           ORDER BY i.puntuacion DESC, i.tiempo_ms ASC NULLS LAST, i.fin ASC NULLS LAST, u.username ASC
-           LIMIT $3`;
-  } else {
-    sql = `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
-           FROM intentos_diarios i
-           JOIN usuarios u ON u.id = i.usuario_id
-           WHERE i.modo_juego_id = $1
-             AND i.dia = $2
-             AND i.completado = TRUE
-             AND i.acertado = TRUE
-           ORDER BY i.tiempo_ms ASC NULLS LAST, i.fin ASC NULLS LAST, u.username ASC
-           LIMIT $3`;
-  }
+  // All modes now rank by puntuacion DESC (rewards overall performance: fewer attempts, fewer hints, less time).
+  // Time is a tiebreaker for users with equal score.
+  const sql = `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
+               FROM intentos_diarios i
+               JOIN usuarios u ON u.id = i.usuario_id
+               WHERE i.modo_juego_id = $1
+                 AND i.dia = $2
+                 AND i.completado = TRUE
+                 AND i.acertado = TRUE
+               ORDER BY i.puntuacion DESC, i.tiempo_ms ASC NULLS LAST, i.fin ASC NULLS LAST, u.username ASC
+               LIMIT $3`;
+  const params = [modo.id, dia, maximo];
   const result = await pool.query(sql, params);
 
   return {
