@@ -203,17 +203,9 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
 
     console.log('INTENTO_PAYLOAD (silueta):', payload);
 
-    const pendingKey = 'inazudle.pending_intentos';
     if (!sesion?.token) {
-      try {
-        const raw = localStorage.getItem(pendingKey) || '[]';
-        const list = JSON.parse(raw);
-        list.push(payload);
-        localStorage.setItem(pendingKey, JSON.stringify(list));
-        console.log('Intento silueta guardado localmente para enviar al iniciar sesión');
-      } catch (e) {
-        console.warn('No se pudo guardar intento pendiente:', e);
-      }
+      console.warn('No hay sesión activa: el intento no se enviará al backend');
+      setFeedback('Inicia sesión para guardar tu intento.');
       return;
     }
 
@@ -229,57 +221,14 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
 
       if (res.ok) {
         setGuardadoBackend(true);
-        try {
-          const raw = localStorage.getItem(pendingKey) || '[]';
-          const list = JSON.parse(raw);
-          if (Array.isArray(list) && list.length > 0) {
-            for (const p of list) {
-              await fetch(`${API_BASE}/api/diarios/intentos`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion.token}` },
-                body: JSON.stringify(p),
-              });
-            }
-            localStorage.removeItem(pendingKey);
-            console.log('Intentos pendientes enviados');
-          }
-        } catch (e) {
-          console.warn('Error enviando intentos pendientes:', e);
-        }
       }
     } catch (e) {
       console.warn('Error enviando intento al backend:', e);
-      try {
-        const raw = localStorage.getItem(pendingKey) || '[]';
-        const list = JSON.parse(raw);
-        list.push(payload);
-        localStorage.setItem(pendingKey, JSON.stringify(list));
-      } catch (err) {}
+      setFeedback('Error enviando el intento al servidor. Intenta de nuevo.');
     }
   };
 
-  useEffect(() => {
-    const pendingKey = 'inazudle.pending_intentos';
-    const flush = async () => {
-      try {
-        const raw = localStorage.getItem(pendingKey) || '[]';
-        const list = JSON.parse(raw);
-        if (!sesion?.token || !Array.isArray(list) || list.length === 0) return;
-        for (const p of list) {
-          await fetch(`${API_BASE}/api/diarios/intentos`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion.token}` },
-            body: JSON.stringify(p),
-          });
-        }
-        localStorage.removeItem(pendingKey);
-        console.log('Intentos pendientes enviados al iniciar sesión');
-      } catch (e) {
-        // noop
-      }
-    };
-    void flush();
-  }, [sesion?.token]);
+  // Removed pending localStorage flush: attempts require an active session and are sent directly to backend.
 
   useEffect(() => {
     Promise.all([

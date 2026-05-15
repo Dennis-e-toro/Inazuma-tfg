@@ -448,6 +448,25 @@ async function registrarIntentoDiario({
   puntuacion,
   adivinanzas,
 }) {
+  try {
+    console.log('[REGISTRAR_INTENTO] Inicio registro intento:', {
+      userId,
+      modoJuegoId,
+      dia,
+      personajeDiarioId,
+      intentosUsados,
+      pistasUsadas,
+      completado,
+      acertado,
+      inicio,
+      fin,
+      tiempoMs,
+      puntuacion,
+      adivinanzasCount: Array.isArray(adivinanzas) ? adivinanzas.length : 0,
+    });
+  } catch (e) {
+    // noop logging
+  }
   const existenteResult = await pool.query(
     `SELECT id, usuario_id, modo_juego_id, personaje_diario_id, dia, intentos_usados, pistas_usados, completado, acertado, inicio, fin, tiempo_ms, puntuacion
      FROM intentos_diarios
@@ -499,6 +518,10 @@ async function registrarIntentoDiario({
 
   const intento = result.rows[0];
 
+  try {
+    console.log('[REGISTRAR_INTENTO] Insert/Update result:', intento ? { id: intento.id, usuario_id: intento.usuario_id, dia: intento.dia, puntuacion: intento.puntuacion } : null);
+  } catch (e) {}
+
   if (Array.isArray(adivinanzas) && adivinanzas.length > 0) {
     await pool.query(
       "DELETE FROM adivinanzas_diarias WHERE intento_diario_id = $1",
@@ -519,6 +542,9 @@ async function registrarIntentoDiario({
         ],
       );
     }
+    try {
+      console.log('[REGISTRAR_INTENTO] Adivinanzas registradas:', adivinanzas.length);
+    } catch (e) {}
   }
 
   return intento;
@@ -1038,6 +1064,20 @@ app.get("/health", (req, res) => {
   });
 });
 
+// Admin debug endpoint to view latest intentos_diarios — enabled when DEBUG_ADMIN=1
+app.get('/api/admin/last-intentos', async (req, res) => {
+  if (String(process.env.DEBUG_ADMIN || '').trim() !== '1') {
+    return res.status(403).json({ ok: false, error: 'Admin debug disabled' });
+  }
+  try {
+    const limit = Math.min(Math.max(parseInt(req.query.limit || '20', 10), 1), 200);
+    const result = await pool.query('SELECT * FROM intentos_diarios ORDER BY creado_en DESC LIMIT $1', [limit]);
+    return res.json({ ok: true, count: result.rowCount, rows: result.rows });
+  } catch (e) {
+    return res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
 app.get("/api/personajes", async (req, res) => {
   try {
     const result = await pool.query("SELECT * FROM personajes ORDER BY id ASC");
@@ -1335,6 +1375,9 @@ app.get("/api/diarios/estado", async (req, res) => {
 
 app.post("/api/diarios/intentos", async (req, res) => {
   try {
+    try {
+      console.log('[API] /api/diarios/intentos body:', JSON.stringify(req.body).slice(0, 2000));
+    } catch (e) {}
     const user = await authDesdeToken(req);
     if (!user) {
       return res.status(401).json({ ok: false, error: "Sesion no valida" });
@@ -1368,6 +1411,10 @@ app.post("/api/diarios/intentos", async (req, res) => {
             puntuacion: req.body?.puntuacion,
             adivinanzas: req.body?.adivinanzas || [],
           });
+
+          try {
+            console.log('[API] registrarIntentoDiario returned:', intento ? { id: intento.id, usuario_id: intento.usuario_id, dia: intento.dia } : null);
+          } catch (e) {}
 
           return res.json({ ok: true, intento, persistido: true });
         }
