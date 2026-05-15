@@ -531,19 +531,32 @@ async function obtenerRankingDiario(modoClave, dia, limite = 10) {
   }
 
   const maximo = Math.min(Math.max(parseNumero(limite, 10), 1), 10);
-  const result = await pool.query(
-    `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
-     FROM intentos_diarios i
-     JOIN usuarios u ON u.id = i.usuario_id
-     WHERE i.modo_juego_id = $1
-       AND i.dia = $2
-       AND i.completado = TRUE
-       AND i.acertado = TRUE
-       AND i.tiempo_ms IS NOT NULL
-     ORDER BY i.tiempo_ms ASC, i.fin ASC, u.username ASC
-     LIMIT $3`,
-    [modo.id, dia, maximo],
-  );
+  // Include entries even if tiempo_ms is NULL (so ranking shows entries),
+  // and for cuadricula order by puntuacion DESC primarily.
+  let sql;
+  let params = [modo.id, dia, maximo];
+  if ((modo.clave || '').toLowerCase() === 'cuadricula') {
+    sql = `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
+           FROM intentos_diarios i
+           JOIN usuarios u ON u.id = i.usuario_id
+           WHERE i.modo_juego_id = $1
+             AND i.dia = $2
+             AND i.completado = TRUE
+             AND i.acertado = TRUE
+           ORDER BY i.puntuacion DESC, i.tiempo_ms ASC NULLS LAST, i.fin ASC NULLS LAST, u.username ASC
+           LIMIT $3`;
+  } else {
+    sql = `SELECT u.username, i.tiempo_ms, i.puntuacion, i.fin
+           FROM intentos_diarios i
+           JOIN usuarios u ON u.id = i.usuario_id
+           WHERE i.modo_juego_id = $1
+             AND i.dia = $2
+             AND i.completado = TRUE
+             AND i.acertado = TRUE
+           ORDER BY i.tiempo_ms ASC NULLS LAST, i.fin ASC NULLS LAST, u.username ASC
+           LIMIT $3`;
+  }
+  const result = await pool.query(sql, params);
 
   return {
     modo,
@@ -860,11 +873,32 @@ app.get('/api/profile', async (req, res) => {
     if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
 
     const perfilesRow = await client.query('SELECT perfiles FROM user_profiles WHERE usuario_id = $1 LIMIT 1', [user.id]);
-    const perfiles = perfilesRow.rowCount > 0 ? perfilesRow.rows[0].perfiles : {};
+    if (perfilesRow.rowCount > 0) {
+      const perfiles = perfilesRow.rows[0].perfiles || {};
+      const avatars = await client.query('SELECT item_key, nombre, imagen_url, cantidad FROM inventario WHERE usuario_id = $1 AND item_tipo = $2', [user.id, 'avatar']);
+      return res.json({ ok: true, profile: { perfiles, avatars: avatars.rows } });
+    }
 
-    const avatars = await client.query('SELECT item_key, nombre, imagen_url, cantidad FROM inventario WHERE usuario_id = $1 AND item_tipo = $2', [user.id, 'avatar']);
+    // No existe perfil persistido: derivar uno ligero a partir de tablas existentes
+    const rows = await client.query('SELECT dia, modo_clave FROM recompensas_diarias WHERE usuario_id = $1', [user.id]);
+    const dailyCompletions = {};
+    for (const r of rows.rows) {
+      const dia = String(r.dia).slice(0, 10);
+      const modo = r.modo_clave || 'desconocido';
+      if (!dailyCompletions[dia]) dailyCompletions[dia] = {};
+      dailyCompletions[dia][modo] = true;
+    }
 
-    return res.json({ ok: true, profile: { perfiles, avatars: avatars.rows } });
+    const inv = await client.query("SELECT item_key, nombre, imagen_url, cantidad FROM inventario WHERE usuario_id = $1 AND item_tipo = 'avatar'", [user.id]);
+    const owned = inv.rows.map((r) => r.item_key);
+
+    const perfilesDerivados = {
+      equippedAvatarId: null,
+      ownedAvatarIds: owned,
+      dailyCompletions,
+    };
+
+    return res.json({ ok: true, profile: { perfiles: perfilesDerivados, avatars: inv.rows, derived: true } });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
   } finally {

@@ -545,6 +545,7 @@ export default function SeleccionJuego() {
     const modoClave = rankingClavePorModo[modoId] || "normal";
     const personajeNombre = String(evento.personajeNombre || evento.nombre || "");
     const personajeSprite = evento.personajeSprite || evento.sprite || null;
+    const personajeSpriteNormalizado = normalizarRutaImagen(personajeSprite);
     const hideCharacter = Boolean(evento.hideCharacter);
     const victoriaTitulo = String(evento.victoriaTitulo || "VICTORIA");
     const victoriaMensajeEvento = String(evento.victoriaMensaje || "");
@@ -553,12 +554,12 @@ export default function SeleccionJuego() {
       lanzarToast("Inicia sesion para recibir monedas");
       setPanelVictoriaPorModo((prev) => ({
         ...prev,
-        [modoId]: {
+          [modoId]: {
           titulo: victoriaTitulo,
           modoId,
           modoNombre,
-          personajeNombre,
-          personajeSprite,
+            personajeNombre,
+            personajeSprite: personajeSpriteNormalizado,
           hideCharacter,
           bloqueadoDiario: true,
           premio: 0,
@@ -592,7 +593,7 @@ export default function SeleccionJuego() {
           modoId,
           modoNombre,
           personajeNombre,
-          personajeSprite,
+          personajeSprite: personajeSpriteNormalizado,
           hideCharacter: true,
           bloqueadoDiario: true,
           premio: 0,
@@ -619,7 +620,7 @@ export default function SeleccionJuego() {
           modoId,
           modoNombre,
           personajeNombre,
-          personajeSprite,
+          personajeSprite: personajeSpriteNormalizado,
           hideCharacter,
           bloqueadoDiario: false,
           premio: 0,
@@ -704,7 +705,7 @@ export default function SeleccionJuego() {
         modoId,
         modoNombre,
         personajeNombre,
-        personajeSprite,
+        personajeSprite: personajeSpriteNormalizado,
         hideCharacter,
         bloqueadoDiario,
         premio: premioOtorgado,
