@@ -758,6 +758,32 @@ app.post('/api/coins/recompensa-diaria', async (req, res) => {
   }
 });
 
+app.get('/api/coins/recompensa-diaria', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const modoClave = String(req.query.modoClave || req.query.modo || '').trim().toLowerCase();
+    const dia = String(req.query.dia || obtenerFechaMadrid()).slice(0, 10);
+    if (!modoClave) return res.status(400).json({ ok: false, error: 'modoClave requerido' });
+
+    const row = await client.query('SELECT premio, creado_en FROM recompensas_diarias WHERE usuario_id = $1 AND dia = $2 AND modo_clave = $3 LIMIT 1', [user.id, dia, modoClave]);
+    if (row.rowCount === 0) {
+      return res.json({ ok: true, exists: false });
+    }
+    const premio = Number(row.rows[0].premio) || 0;
+    const saldoRes = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 LIMIT 1', [user.id]);
+    const monedas = parseNumero(saldoRes.rows[0]?.monedas, 0);
+    return res.json({ ok: true, exists: true, premio, monedas });
+  } catch (err) {
+    return res.status(500).json({ ok: false, error: err.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
 app.post('/api/coins/spend', async (req, res) => {
   let client;
   try {

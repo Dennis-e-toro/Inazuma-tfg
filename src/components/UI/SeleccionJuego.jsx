@@ -433,14 +433,8 @@ export default function SeleccionJuego() {
   }, []);
 
   const lanzarToast = (mensaje) => {
-    if (toastTimerRef.current) {
-      clearTimeout(toastTimerRef.current);
-    }
-    setToastMonedas(mensaje);
-    toastTimerRef.current = setTimeout(() => {
-      setToastMonedas("");
-      toastTimerRef.current = null;
-    }, 2500);
+    // To avoid on-screen coin toasts, keep this as non-intrusive log for now.
+    console.log('TOAST:', mensaje);
   };
 
   useEffect(() => {
@@ -587,6 +581,20 @@ export default function SeleccionJuego() {
 
     if (hoyMapActual[modoId] && !allowReplay) {
       // Ya completado hoy: mostrar panel informativo (ocultando la imagen del personaje)
+      // Consultar premio real desde backend para no mostrar +0
+      let premioMostrado = 0;
+      try {
+        const resPrem = await fetch(`${API_BASE}/api/coins/recompensa-diaria?modoClave=${encodeURIComponent(modoClave)}&dia=${hoy}`, {
+          headers: { Authorization: sesion?.token ? `Bearer ${sesion.token}` : '' },
+        });
+        if (resPrem.ok) {
+          const d = await resPrem.json();
+          if (d?.ok && d.exists) premioMostrado = Number(d.premio) || 0;
+        }
+      } catch (e) {
+        // ignore; fallback a 0
+      }
+
       setPanelVictoriaPorModo((prev) => ({
         ...prev,
         [modoId]: {
@@ -597,7 +605,7 @@ export default function SeleccionJuego() {
           personajeSprite: personajeSpriteNormalizado,
           hideCharacter: true,
           bloqueadoDiario: true,
-          premio: 0,
+          premio: premioMostrado,
           progreso: Object.values(hoyMapActual).filter(Boolean).length,
           progresoTotal: juegos.length,
           racha: calcularRachaDias(dailyActual, hoy),
@@ -737,6 +745,18 @@ export default function SeleccionJuego() {
       delete next[juegoActivo.id];
       return next;
     });
+    // If forcing replay, clear local completion flag so UI doesn't immediately block again
+    if (allowReplay && perfilActual) {
+      actualizarPerfilActual((base) => {
+        const daily = { ...(base.dailyCompletions || {}) };
+        const hoyMap = { ...(daily[hoy] || {}) };
+        if (hoyMap[juegoActivo.id]) {
+          delete hoyMap[juegoActivo.id];
+          daily[hoy] = Object.keys(hoyMap).length ? hoyMap : undefined;
+        }
+        return { ...base, dailyCompletions: daily };
+      });
+    }
     setInstanciaJuego((prev) => prev + 1);
     setPartidaInicioTs(Date.now());
   };
@@ -976,7 +996,7 @@ export default function SeleccionJuego() {
                   <p className="victory-kicker">{panelVictoriaActiva.titulo}</p>
                   <h3>{panelVictoriaActiva.modoNombre}</h3>
 
-                  {!panelVictoriaActiva.hideCharacter && panelVictoriaActiva.personajeSprite && (
+                  {( (!panelVictoriaActiva.hideCharacter) || allowReplay) && panelVictoriaActiva.personajeSprite && (
                     <div className="victory-character-frame">
                       <img src={panelVictoriaActiva.personajeSprite} alt={panelVictoriaActiva.personajeNombre || "Personaje"} className="victory-character" />
                     </div>
@@ -1010,7 +1030,7 @@ export default function SeleccionJuego() {
                   <div className="victory-actions">
                     {panelVictoriaActiva?.modoId !== "adivinarSilueta" && panelVictoriaActiva?.modoId !== "adivinarCuadricula" && (
                       <button type="button" onClick={reiniciarModoActual}>
-                        {panelVictoriaActiva?.bloqueadoDiario ? "Volver mañana" : "Jugar de nuevo"}
+                        {(panelVictoriaActiva?.bloqueadoDiario && !allowReplay) ? "Volver mañana" : "Jugar de nuevo"}
                       </button>
                     )}
                   </div>
@@ -1522,7 +1542,7 @@ export default function SeleccionJuego() {
           </div>
         </div>
       )}
-      {toastMonedas && <div className="coin-toast">{toastMonedas}</div>}
+      {/* coin-toast removed per user request */}
     </div>
   );
 }
