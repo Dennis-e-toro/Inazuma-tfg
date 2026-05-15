@@ -10,8 +10,9 @@ async function insertarCartasDemo() {
     console.log("🎴 Insertando cartas de demo con imágenes SVG base64...\n");
 
     const cartas = [
-      { nombre: "UR - Aiden & Shawn", rareza: "ur", club: "Raimon", imagen: "/cartas/aiden_y_shawn.png" },
-      { nombre: "UR - Haizaki", rareza: "ur", club: "Demonio", imagen: "/cartas/haizaki.png" }
+      { nombre: "UR - Aiden & Shawn", rareza: "ur", club: "Raimon", imagen: "/cartas/Aiden_y_Shawn.png" },
+      { nombre: "UR - Axel", rareza: "ur", club: "Raimon", imagen: "/cartas/Axel.png" },
+      { nombre: "UR - Haizaki", rareza: "ur", club: "Demonio", imagen: "/cartas/Haizaki.png" }
     ];
 
     for (const carta of cartas) {
