@@ -146,6 +146,7 @@ export default function SeleccionJuego() {
   const [authForm, setAuthForm] = useState({ username: "", email: "", password: "" });
   const [authError, setAuthError] = useState("");
   const [authLoading, setAuthLoading] = useState(false);
+  const [allowReplay, setAllowReplay] = useState(false);
   const [partidaInicioTs, setPartidaInicioTs] = useState(() => Date.now());
   const [tiendaSaga, setTiendaSaga] = useState("all");
   const [tiendaClub, setTiendaClub] = useState("all");
@@ -584,7 +585,7 @@ export default function SeleccionJuego() {
     const dailyActual = { ...(perfilActual?.dailyCompletions || {}) };
     const hoyMapActual = { ...(dailyActual[hoy] || {}) };
 
-    if (hoyMapActual[modoId]) {
+    if (hoyMapActual[modoId] && !allowReplay) {
       // Ya completado hoy: mostrar panel informativo (ocultando la imagen del personaje)
       setPanelVictoriaPorModo((prev) => ({
         ...prev,
@@ -717,10 +718,10 @@ export default function SeleccionJuego() {
         lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
       },
     }));
-  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, perfilActual, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion]);
+  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, perfilActual, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion, allowReplay]);
 
   const reiniciarModoActual = () => {
-    if (panelVictoriaActiva?.bloqueadoDiario) {
+    if (panelVictoriaActiva?.bloqueadoDiario && !allowReplay) {
       setPanelVictoriaPorModo((prev) => {
         if (!prev[juegoActivo.id]) return prev;
         const next = { ...prev };
@@ -938,6 +939,15 @@ export default function SeleccionJuego() {
               >
                 Perfil
               </button>
+            )}
+          </article>
+          <article className="status-card" style={{ alignItems: 'center' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+              <input type="checkbox" checked={allowReplay} onChange={(e) => setAllowReplay(e.target.checked)} />
+              <small>Forzar re-juego (dev)</small>
+            </label>
+            {allowReplay && (
+              <button className="perfil-open-btn" onClick={() => setAllowReplay(false)}>Volver normal</button>
             )}
           </article>
         </section>
