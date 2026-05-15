@@ -338,9 +338,40 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   };
 
   const guardarResultado = async ({ adivinanzasFinales }) => {
-    if (guardadoBackend || !sesion?.token) return;
+    if (guardadoBackend) return;
 
     const tiempoMs = Date.now() - inicioRef.current;
+
+    const payload = {
+      modoClave: "cuadricula",
+      dia: hoyIso,
+      intentosUsados: aciertos + fallos,
+      pistasUsadas: 0,
+      completado: true,
+      acertado: true,
+      inicio: new Date(inicioRef.current).toISOString(),
+      fin: new Date().toISOString(),
+      tiempoMs,
+      puntuacion: Math.max(0, 1000 - fallos * 40 - Math.floor(tiempoMs / 1000)),
+      adivinanzas: adivinanzasFinales,
+    };
+
+    console.log('INTENTO_PAYLOAD (cuadricula):', payload);
+
+    const pendingKey = 'inazudle.pending_intentos';
+
+    if (!sesion?.token) {
+      try {
+        const raw = localStorage.getItem(pendingKey) || '[]';
+        const list = JSON.parse(raw);
+        list.push(payload);
+        localStorage.setItem(pendingKey, JSON.stringify(list));
+        console.log('Intento cuadricula guardado localmente para enviar al iniciar sesión');
+      } catch (e) {
+        console.warn('No se pudo guardar intento pendiente:', e);
+      }
+      return;
+    }
 
     try {
       const res = await fetch(`${API_BASE}/api/diarios/intentos`, {
@@ -349,28 +380,64 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
           "Content-Type": "application/json",
           Authorization: `Bearer ${sesion.token}`,
         },
-        body: JSON.stringify({
-          modoClave: "cuadricula",
-          dia: hoyIso,
-          intentosUsados: aciertos + fallos,
-          pistasUsadas: 0,
-          completado: true,
-          acertado: true,
-          inicio: new Date(inicioRef.current).toISOString(),
-          fin: new Date().toISOString(),
-          tiempoMs,
-          puntuacion: Math.max(0, 1000 - fallos * 40 - Math.floor(tiempoMs / 1000)),
-          adivinanzas: adivinanzasFinales,
-        }),
+        body: JSON.stringify(payload),
       });
 
       if (res.ok) {
         setGuardadoBackend(true);
+        try {
+          const raw = localStorage.getItem(pendingKey) || '[]';
+          const list = JSON.parse(raw);
+          if (Array.isArray(list) && list.length > 0) {
+            for (const p of list) {
+              await fetch(`${API_BASE}/api/diarios/intentos`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion.token}` },
+                body: JSON.stringify(p),
+              });
+            }
+            localStorage.removeItem(pendingKey);
+            console.log('Intentos pendientes enviados');
+          }
+        } catch (e) {
+          console.warn('Error enviando intentos pendientes:', e);
+        }
       }
-    } catch {
-      // Se mantiene el resultado en el cliente aunque falle el guardado.
+    } catch (e) {
+      console.warn('Error enviando intento al backend:', e);
+      try {
+        const raw = localStorage.getItem(pendingKey) || '[]';
+        const list = JSON.parse(raw);
+        list.push(payload);
+        localStorage.setItem(pendingKey, JSON.stringify(list));
+      } catch (err) {
+        // noop
+      }
     }
   };
+
+  useEffect(() => {
+    const pendingKey = 'inazudle.pending_intentos';
+    const flush = async () => {
+      try {
+        const raw = localStorage.getItem(pendingKey) || '[]';
+        const list = JSON.parse(raw);
+        if (!sesion?.token || !Array.isArray(list) || list.length === 0) return;
+        for (const p of list) {
+          await fetch(`${API_BASE}/api/diarios/intentos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${sesion.token}` },
+            body: JSON.stringify(p),
+          });
+        }
+        localStorage.removeItem(pendingKey);
+        console.log('Intentos pendientes enviados al iniciar sesión');
+      } catch (e) {
+        // noop
+      }
+    };
+    void flush();
+  }, [sesion?.token]);
 
   useEffect(() => {
     setCargando(true);
