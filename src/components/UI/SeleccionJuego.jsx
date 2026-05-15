@@ -9,7 +9,7 @@ import { assetUrl } from "../../helpers/assetUrl";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 const AUTH_PROFILE_KEY = "inazudle.profile.v2";
-const DEFAULT_SOBRE_PORTADA = assetUrl("/cartas/aiden_y_shawn.png");
+const DEFAULT_SOBRE_PORTADA = null;
 
 function cargarSesionLocal() {
   try {
@@ -1316,16 +1316,20 @@ export default function SeleccionJuego() {
                         sobresCatalogo.map((s) => (
                           <div key={s.id} className="sobre-card">
                             <div className="sobre-preview">
-                              <img 
-                                src={s.portada_src || DEFAULT_SOBRE_PORTADA} 
-                                  alt={s.nombre} 
+                              {s.portada_src ? (
+                                <img
+                                  src={s.portada_src}
+                                  alt={s.nombre}
                                   className="sobre-img"
                                   onError={(e) => {
-                                    console.error(`❌ Error loading portada for ${s.nombre}:`, e);
-                                    e.target.src = DEFAULT_SOBRE_PORTADA;
+                                    // Ocultar la imagen si falla la carga para evitar errores en consola
+                                    e.currentTarget.style.display = 'none';
                                   }}
                                   onLoad={() => console.log(`✓ Portada loaded: ${s.nombre}`)}
-                              />
+                                />
+                              ) : (
+                                <div className="sobre-no-portada" aria-hidden />
+                              )}
                             </div>
                             <strong>{s.nombre}</strong>
                             <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
@@ -1448,27 +1452,34 @@ export default function SeleccionJuego() {
           <div className="sobre-modal-body">
             {abrirSobreState.animando ? (
               <div className="sobre-opening">
-                <img
-                  className="sobre-box-image"
-                  src={DEFAULT_SOBRE_PORTADA}
-                  alt="Sobre"
-                  aria-hidden="true"
-                />
+                {DEFAULT_SOBRE_PORTADA ? (
+                  <img
+                    className="sobre-box-image"
+                    src={DEFAULT_SOBRE_PORTADA}
+                    alt="Sobre"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <div className="sobre-box-placeholder" aria-hidden />
+                )}
               </div>
             ) : (
               <div className="sobre-result">
                 {abrirSobreState.cartas.length > 0 && (
                   <div className="cartas-list">
-                    {abrirSobreState.cartas.map((c) => (
+                        {abrirSobreState.cartas.map((c) => (
                       <div key={c.id} className="carta-card">
-                        <img 
-                          src={c.imagen_src || DEFAULT_SOBRE_PORTADA} 
-                          alt="Carta obtenida"
-                          onError={(e) => {
-                            console.error(`❌ Error loading carta image for ${c.nombre}:`, e);
-                            e.currentTarget.src = DEFAULT_SOBRE_PORTADA;
-                          }}
-                        />
+                          {c.imagen_src ? (
+                            <img
+                              src={c.imagen_src}
+                              alt={c.nombre || 'Carta obtenida'}
+                              onError={(e) => {
+                                e.currentTarget.style.display = 'none';
+                              }}
+                            />
+                          ) : (
+                            <span>🃏</span>
+                          )}
                       </div>
                     ))}
                   </div>
