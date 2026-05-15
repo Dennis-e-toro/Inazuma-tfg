@@ -88,11 +88,13 @@ function crearPerfilBase() {
 }
 
 function normalizarImagenCarta(carta) {
-  const url = String(carta?.imagen_url || "").trim();
+  let url = String(carta?.imagen_url || "").trim();
   if (!url) return "";
   if (/^data:image\//i.test(url) || /^blob:/i.test(url)) return url;
-  if (url.startsWith("/")) return assetUrl(url);
-  return url;
+  if (url.startsWith("http://") || url.startsWith("https://")) return url;
+  // Asegurar que empiece con /
+  if (!url.startsWith("/")) url = "/" + url;
+  return assetUrl(url);
 }
 
 function isoConDesplazamiento(baseIso, dias) {
