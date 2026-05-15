@@ -1387,49 +1387,46 @@ app.post("/api/diarios/intentos", async (req, res) => {
       .trim()
       .toLowerCase();
     const dia = String(req.body?.dia || obtenerFechaMadrid()).slice(0, 10);
-    try {
-      const modo = await obtenerModoJuegoId(modoClave).catch(() => null);
-      if (modo) {
-        const personajeDiario = await obtenerODesbloquearPersonajeDiario(
-          modo.id,
-          dia,
-        ).catch(() => null);
-        if (personajeDiario) {
-          const intento = await registrarIntentoDiario({
-            userId: user.id,
-            modoJuegoId: modo.id,
-            dia,
-            personajeDiarioId: personajeDiario.id,
-            intentosUsados:
-              req.body?.intentosUsados ?? req.body?.intentos_usados,
-            pistasUsadas: req.body?.pistasUsadas ?? req.body?.pistas_usadas,
-            completado: req.body?.completado,
-            acertado: req.body?.acertado,
-            inicio: req.body?.inicio,
-            fin: req.body?.fin,
-            tiempoMs: req.body?.tiempoMs ?? req.body?.tiempo_ms,
-            puntuacion: req.body?.puntuacion,
-            adivinanzas: req.body?.adivinanzas || [],
-          });
-
-          try {
-            console.log('[API] registrarIntentoDiario returned:', intento ? { id: intento.id, usuario_id: intento.usuario_id, dia: intento.dia } : null);
-          } catch (e) {}
-
-          return res.json({ ok: true, intento, persistido: true });
-        }
-      }
-    } catch {
-      // fallback sin persistencia
+    const modo = await obtenerModoJuegoId(modoClave);
+    if (!modo) {
+      console.warn('[API] /api/diarios/intentos modo no encontrado:', modoClave);
+      return res.status(404).json({ ok: false, error: 'Modo de juego no encontrado', persistido: false });
     }
 
-    return res.json({ ok: true, intento: null, persistido: false });
+    const personajeDiario = await obtenerODesbloquearPersonajeDiario(modo.id, dia);
+    if (!personajeDiario) {
+      console.warn('[API] /api/diarios/intentos sin personaje diario:', { modoClave, dia, modoId: modo.id });
+      return res.status(404).json({ ok: false, error: 'No se pudo obtener el personaje diario', persistido: false });
+    }
+
+    const intento = await registrarIntentoDiario({
+      userId: user.id,
+      modoJuegoId: modo.id,
+      dia,
+      personajeDiarioId: personajeDiario.id,
+      intentosUsados: req.body?.intentosUsados ?? req.body?.intentos_usados,
+      pistasUsadas: req.body?.pistasUsadas ?? req.body?.pistas_usadas,
+      completado: req.body?.completado,
+      acertado: req.body?.acertado,
+      inicio: req.body?.inicio,
+      fin: req.body?.fin,
+      tiempoMs: req.body?.tiempoMs ?? req.body?.tiempo_ms,
+      puntuacion: req.body?.puntuacion,
+      adivinanzas: req.body?.adivinanzas || [],
+    });
+
+    try {
+      console.log('[API] registrarIntentoDiario returned:', intento ? { id: intento.id, usuario_id: intento.usuario_id, dia: intento.dia } : null);
+    } catch (e) {}
+
+    return res.json({ ok: true, intento, persistido: true });
   } catch (error) {
-    return res.json({
-      ok: true,
+    console.error('[API] /api/diarios/intentos error:', error);
+    return res.status(500).json({
+      ok: false,
       intento: null,
       persistido: false,
-      warning: error.message,
+      error: error.message,
     });
   }
 });

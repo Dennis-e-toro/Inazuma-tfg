@@ -410,7 +410,7 @@ export default function SeleccionJuego() {
     };
   }, [rankingModoClave]);
 
-  const actualizarPerfilActual = (updater) => {
+  const actualizarPerfilActual = useCallback((updater) => {
     if (!sesion?.username) return;
     setPerfiles((prev) => {
       const base = prev[sesion.username] || crearPerfilBase();
@@ -419,7 +419,7 @@ export default function SeleccionJuego() {
         [sesion.username]: updater(base),
       };
     });
-  };
+  }, [sesion?.username]);
 
   const actualizarMonedasSesion = useCallback((monedas) => {
     const valor = Number(monedas);
@@ -432,10 +432,10 @@ export default function SeleccionJuego() {
     });
   }, []);
 
-  const lanzarToast = (mensaje) => {
+  const lanzarToast = useCallback((mensaje) => {
     // To avoid on-screen coin toasts, keep this as non-intrusive log for now.
     console.log('TOAST:', mensaje);
-  };
+  }, []);
 
   useEffect(() => {
     return () => {

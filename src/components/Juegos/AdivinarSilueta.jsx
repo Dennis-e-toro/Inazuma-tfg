@@ -173,16 +173,16 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
   const [fallos, setFallos] = useState(0);
   const [resuelto, setResuelto] = useState(false);
   const [adivinanzas, setAdivinanzas] = useState([]);
-  const [guardadoBackend, setGuardadoBackend] = useState(false);
   const [bloqueadoHoy, setBloqueadoHoy] = useState(false);
   const inicioRef = useRef(Date.now());
+  const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();
 
   const hoyIso = new Date().toISOString().slice(0, 10);
 
-  const guardarResultado = async ({ objetivoDiario, adivinanzasFinales }) => {
-    if (guardadoBackend || !objetivoDiario) return;
+  const guardarResultado = async ({ objetivoDiario, adivinanzasFinales, completado = false, acertado = false }) => {
+    if (!objetivoDiario) return;
 
     const tiempoMs = Date.now() - inicioRef.current;
     const pistasUsadas = Math.max(0, Math.min(3, fallos - 2));
@@ -192,8 +192,8 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
       dia: hoyIso,
       intentosUsados: fallos + 1,
       pistasUsadas,
-      completado: true,
-      acertado: true,
+      completado,
+      acertado,
       inicio: new Date(inicioRef.current).toISOString(),
       fin: new Date().toISOString(),
       tiempoMs,
@@ -219,8 +219,8 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        setGuardadoBackend(true);
+      if (res.ok && completado && acertado) {
+        // cierre final persistido
       }
     } catch (e) {
       console.warn('Error enviando intento al backend:', e);
@@ -336,12 +336,20 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
         },
       ];
       setAdivinanzas(siguienteAdivinanzas);
-      void guardarResultado({ objetivoDiario: personajeActual, adivinanzasFinales: siguienteAdivinanzas });
-      onDailyComplete?.({
-        modoId: "adivinarSilueta",
-        personajeNombre: personajeActual.nombre || "",
-        personajeSprite: personajeActual.sprite_url || null,
+      void guardarResultado({
+        objetivoDiario: personajeActual,
+        adivinanzasFinales: siguienteAdivinanzas,
+        completado: true,
+        acertado: true,
       });
+      if (!resultadoNotificadoRef.current) {
+        resultadoNotificadoRef.current = true;
+        onDailyComplete?.({
+          modoId: "adivinarSilueta",
+          personajeNombre: personajeActual.nombre || "",
+          personajeSprite: personajeActual.sprite_url || null,
+        });
+      }
     } else {
       const intentoPersonaje = buscarPersonajePorIntento(personajes, valor);
       setFeedback("Incorrecto ❌ Sigue probando");
@@ -362,6 +370,15 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
       setFallos(prev => prev + 1);
       setInput("");
       setSugerencias([]);
+      void guardarResultado({
+        objetivoDiario: personajeActual,
+        adivinanzasFinales: [
+          ...adivinanzas,
+          { personajeId: intentoPersonaje?.id || null, esCorrecta: false },
+        ],
+        completado: false,
+        acertado: false,
+      });
     }
   };
 

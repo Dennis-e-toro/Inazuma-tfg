@@ -102,15 +102,15 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
   const [mensajeIntento, setMensajeIntento] = useState("");
-  const [guardadoBackend, setGuardadoBackend] = useState(false);
   const [bloqueadoHoy, setBloqueadoHoy] = useState(false);
   const inicioRef = useRef(Date.now());
+  const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();
   const hoyIso = new Date().toISOString().slice(0, 10);
 
-  const guardarResultado = async ({ intentosGanadores, objetivoDiario }) => {
-    if (guardadoBackend || !objetivoDiario) return;
+  const guardarResultado = async ({ intentosGanadores, objetivoDiario, completado = false, acertado = false }) => {
+    if (!objetivoDiario) return;
 
     const tiempoMs = Date.now() - inicioRef.current;
     const payload = {
@@ -118,8 +118,8 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
       dia: hoyIso,
       intentosUsados: intentosGanadores.length,
       pistasUsadas: 0,
-      completado: true,
-      acertado: true,
+      completado,
+      acertado,
       inicio: new Date(inicioRef.current).toISOString(),
       fin: new Date().toISOString(),
       tiempoMs,
@@ -148,8 +148,8 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        setGuardadoBackend(true);
+      if (res.ok && completado && acertado) {
+        // el cierre final ya se persistió; no hacemos nada extra
       }
     } catch (e) {
       console.warn('Error enviando intento al backend:', e);
@@ -289,9 +289,21 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
     setSugerencias([]);
     setMensajeIntento("");
 
+    void guardarResultado({
+      intentosGanadores: nuevosIntentos,
+      objetivoDiario: objetivo,
+      completado: false,
+      acertado: false,
+    });
+
     if (nombreSeleccionado === texto(objetivo.nombre)) {
       setAcertado(true);
-      void guardarResultado({ intentosGanadores: nuevosIntentos, objetivoDiario: objetivo });
+      void guardarResultado({
+        intentosGanadores: nuevosIntentos,
+        objetivoDiario: objetivo,
+        completado: true,
+        acertado: true,
+      });
     }
   };
 
@@ -320,7 +332,8 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
   };
 
   useEffect(() => {
-    if (!acertado) return;
+    if (!acertado || resultadoNotificadoRef.current) return;
+    resultadoNotificadoRef.current = true;
     const tiempoMs = Date.now() - inicioRef.current;
     onDailyComplete?.({
       modoId: "adivinarPersonaje",
@@ -330,7 +343,7 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
       intentosUsados: intentos.length,
       puntuacion: calcularPuntuacion(intentos.length, 0, tiempoMs),
     });
-  }, [acertado, onDailyComplete, objetivo]);
+  }, [acertado, onDailyComplete, objetivo, intentos.length]);
 
   if (cargando) {
     return <p className="ap-loading">Cargando personajes...</p>;

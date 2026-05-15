@@ -320,8 +320,8 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
-  const [guardadoBackend, setGuardadoBackend] = useState(false);
   const inicioRef = useRef(Date.now());
+  const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();
   const hoyIso = new Date().toISOString().slice(0, 10);
@@ -337,18 +337,17 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
     }
   };
 
-  const guardarResultado = async ({ adivinanzasFinales }) => {
-    if (guardadoBackend) return;
+  const guardarResultado = async ({ adivinanzasFinales, completado = false, acertado = false, intentosUsados }) => {
 
     const tiempoMs = Date.now() - inicioRef.current;
 
     const payload = {
       modoClave: "cuadricula",
       dia: hoyIso,
-      intentosUsados: aciertos + fallos,
+      intentosUsados: intentosUsados ?? (aciertos + fallos),
       pistasUsadas: 0,
-      completado: true,
-      acertado: true,
+      completado,
+      acertado,
       inicio: new Date(inicioRef.current).toISOString(),
       fin: new Date().toISOString(),
       tiempoMs,
@@ -374,8 +373,8 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
         body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        setGuardadoBackend(true);
+      if (res.ok && completado && acertado) {
+        // cierre final persistido
       }
     } catch (e) {
       console.warn('Error enviando intento al backend:', e);
@@ -477,6 +476,19 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
       },
     }));
     setFallos((prev) => prev + 1);
+
+    void guardarResultado({
+      adivinanzasFinales: Object.values(celdas)
+        .filter((celda) => celda?.personaje?.id)
+        .map((celda) => ({
+          personajeId: celda.personaje.id,
+          esCorrecta: celda.estado === "ok",
+        }))
+        .concat([{ personajeId: null, esCorrecta: false }]),
+      completado: false,
+      acertado: false,
+      intentosUsados: aciertos + fallos + 1,
+    });
   };
 
   const comprobarEnCasilla = (personaje) => {
@@ -523,6 +535,19 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
       }));
       setAciertos((prev) => prev + 1);
       setMensaje(`Acierto: ${personaje.nombre}`);
+
+      void guardarResultado({
+        adivinanzasFinales: Object.values(celdas)
+          .filter((celda) => celda?.personaje?.id)
+          .map((celda) => ({
+            personajeId: celda.personaje.id,
+            esCorrecta: celda.estado === "ok",
+          }))
+          .concat([{ personajeId: personaje.id, esCorrecta: true }]),
+        completado: false,
+        acertado: false,
+        intentosUsados: aciertos + fallos + 1,
+      });
     } else {
       marcarFallo(row, col, personaje.nombre);
       setMensaje(`Fallo: ${personaje.nombre}`);
@@ -582,7 +607,8 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   const juegoBloqueado = bloqueadoDiario || ganado;
 
   useEffect(() => {
-    if (!ganado) return;
+    if (!ganado || resultadoNotificadoRef.current) return;
+    resultadoNotificadoRef.current = true;
     const adivinanzasFinales = Object.values(celdas)
       .filter((celda) => celda?.personaje?.id)
       .map((celda) => ({
@@ -590,14 +616,19 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
         esCorrecta: true,
       }));
 
-    void guardarResultado({ adivinanzasFinales });
+    void guardarResultado({
+      adivinanzasFinales,
+      completado: true,
+      acertado: true,
+      intentosUsados: aciertos + fallos,
+    });
     onDailyComplete?.({
       modoId: "adivinarCuadricula",
       victoriaTitulo: "VICTORIA",
       victoriaMensaje: "Has completado la cuadricula 3x3.",
       hideCharacter: true,
     });
-  }, [ganado, onDailyComplete]);
+  }, [ganado, onDailyComplete, celdas]);
 
   if (cargando) {
     return <p className="acg-loading">Preparando tablero 3x3...</p>;
