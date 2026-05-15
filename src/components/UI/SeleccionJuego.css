@@ -987,7 +987,7 @@ input:focus-visible {
   height: 96px;
   border-radius: 8px;
   overflow: hidden;
-  display: flex;
+  display: none;
   align-items: center;
   justify-content: center;
 }
