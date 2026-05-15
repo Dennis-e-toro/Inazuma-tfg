@@ -468,7 +468,7 @@ async function registrarIntentoDiario({
     // noop logging
   }
   const existenteResult = await pool.query(
-    `SELECT id, usuario_id, modo_juego_id, personaje_diario_id, dia, intentos_usados, pistas_usados, completado, acertado, inicio, fin, tiempo_ms, puntuacion
+    `SELECT id, usuario_id, modo_juego_id, personaje_diario_id, dia, intentos_usados, pistas_usadas, completado, acertado, inicio, fin, tiempo_ms, puntuacion
      FROM intentos_diarios
      WHERE usuario_id = $1 AND modo_juego_id = $2 AND dia = $3
      LIMIT 1`,

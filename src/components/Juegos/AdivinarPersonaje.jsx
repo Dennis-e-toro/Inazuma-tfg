@@ -148,6 +148,19 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
         body: JSON.stringify(payload),
       });
 
+      if (!res.ok) {
+        let detalle = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data?.error) detalle = data.error;
+        } catch {
+          // noop
+        }
+        console.warn('Error guardando intento (normal):', detalle);
+        setMensajeIntento(`No se pudo guardar el intento: ${detalle}`);
+        return;
+      }
+
       if (res.ok && completado && acertado) {
         // el cierre final ya se persistió; no hacemos nada extra
       }

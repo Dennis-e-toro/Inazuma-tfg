@@ -219,6 +219,19 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
         body: JSON.stringify(payload),
       });
 
+      if (!res.ok) {
+        let detalle = `HTTP ${res.status}`;
+        try {
+          const data = await res.json();
+          if (data?.error) detalle = data.error;
+        } catch {
+          // noop
+        }
+        console.warn('Error guardando intento (silueta):', detalle);
+        setFeedback(`No se pudo guardar el intento: ${detalle}`);
+        return;
+      }
+
       if (res.ok && completado && acertado) {
         // cierre final persistido
       }
