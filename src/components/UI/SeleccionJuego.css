@@ -984,10 +984,10 @@ input:focus-visible {
 }
 .sobre-card .sobre-preview {
   width: 100%;
-  height: 96px;
+  height: 0;
   border-radius: 8px;
   overflow: hidden;
-  display: none;
+  display: flex;
   align-items: center;
   justify-content: center;
 }
@@ -1035,6 +1035,13 @@ input:focus-visible {
   cursor: pointer;
 }
 
+.sobre-opening .sobre-box-image {
+  width: 120px;
+  height: 160px;
+  animation: flip-open 1.2s ease-out forwards;
+  cursor: pointer;
+}
+
 .sobre-opening p {
   font-size: 14px;
   color: #bde7ff;
@@ -1059,8 +1066,9 @@ input:focus-visible {
 }
 .carta-card img { 
   width: 100%;
-  height: min(68vh, 620px);
-  object-fit: cover;
+  height: auto;
+  max-height: 300px;
+  object-fit: contain;
   border-radius: 8px;
   display: block;
   margin: 0;
