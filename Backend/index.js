@@ -712,9 +712,11 @@ app.post('/api/coins/recompensa-diaria', async (req, res) => {
     );
 
     if (yaOtorgada.rowCount > 0) {
-      const saldoActual = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 LIMIT 1', [user.id]);
-      await client.query('COMMIT');
-      return res.json({ ok: true, otorgado: false, monedas: parseNumero(saldoActual.rows[0]?.monedas, 0) });
+        const row = await client.query('SELECT premio FROM recompensas_diarias WHERE usuario_id = $1 AND dia = $2 AND modo_clave = $3 LIMIT 1', [user.id, dia, modoClave]);
+        const premioRegistrado = row.rows[0]?.premio ?? null;
+        const saldoActual = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 LIMIT 1', [user.id]);
+        await client.query('COMMIT');
+        return res.json({ ok: true, otorgado: false, premio: premioRegistrado, monedas: parseNumero(saldoActual.rows[0]?.monedas, 0) });
     }
 
     await client.query(
@@ -795,6 +797,100 @@ app.post('/api/coins/spend', async (req, res) => {
     return res.json({ ok: true, monedas: parseNumero(updateRes.rows[0]?.monedas, 0) });
   } catch (error) {
     if (client) await client.query('ROLLBACK').catch(() => {});
+    return res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+app.post('/api/shop/comprar-avatar', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const avatarId = String(req.body?.avatarId || '').trim();
+    const price = Math.max(0, parseNumero(req.body?.price, 0));
+    const nombre = String(req.body?.nombre || '').trim();
+    const imagenUrl = req.body?.imagenUrl || null;
+
+    if (!avatarId || price <= 0) return res.status(400).json({ ok: false, error: 'avatarId y price requeridos' });
+
+    await client.query('BEGIN');
+
+    const saldoRes = await client.query('SELECT COALESCE(monedas, 0) AS monedas FROM usuarios WHERE id = $1 FOR UPDATE', [user.id]);
+    const saldo = parseNumero(saldoRes.rows[0]?.monedas, 0);
+    if (saldo < price) {
+      await client.query('ROLLBACK');
+      return res.status(400).json({ ok: false, error: 'Monedas insuficientes' });
+    }
+
+    await client.query(
+      `INSERT INTO inventario (usuario_id, item_tipo, item_key, nombre, imagen_url, cantidad, creado_en, actualizado_en)
+       VALUES ($1, 'avatar', $2, $3, $4, 1, NOW(), NOW())
+       ON CONFLICT (usuario_id, item_tipo, item_key) DO UPDATE SET cantidad = inventario.cantidad + 1, actualizado_en = NOW()`,
+      [user.id, avatarId, nombre || avatarId, imagenUrl],
+    );
+
+    const updated = await client.query('UPDATE usuarios SET monedas = COALESCE(monedas, 0) - $1 WHERE id = $2 RETURNING COALESCE(monedas,0) AS monedas', [price, user.id]);
+
+    await client.query(
+      `INSERT INTO monedas_movimientos (usuario_id, cambio, motivo, metadata)
+       VALUES ($1, $2, 'compra_avatar', $3::jsonb)`,
+      [user.id, -price, JSON.stringify({ avatarId, price })],
+    );
+
+    await client.query('COMMIT');
+
+    return res.json({ ok: true, monedas: parseNumero(updated.rows[0]?.monedas, 0) });
+  } catch (error) {
+    if (client) await client.query('ROLLBACK').catch(() => {});
+    return res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+app.get('/api/profile', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const perfilesRow = await client.query('SELECT perfiles FROM user_profiles WHERE usuario_id = $1 LIMIT 1', [user.id]);
+    const perfiles = perfilesRow.rowCount > 0 ? perfilesRow.rows[0].perfiles : {};
+
+    const avatars = await client.query('SELECT item_key, nombre, imagen_url, cantidad FROM inventario WHERE usuario_id = $1 AND item_tipo = $2', [user.id, 'avatar']);
+
+    return res.json({ ok: true, profile: { perfiles, avatars: avatars.rows } });
+  } catch (error) {
+    return res.status(500).json({ ok: false, error: error.message });
+  } finally {
+    if (client) client.release();
+  }
+});
+
+app.post('/api/profile', async (req, res) => {
+  let client;
+  try {
+    client = await pool.connect();
+    const user = await authDesdeToken(req, client);
+    if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
+
+    const perfiles = req.body?.perfiles ?? null;
+    if (!perfiles || typeof perfiles !== 'object') return res.status(400).json({ ok: false, error: 'perfiles es requerido' });
+
+    await client.query(
+      `INSERT INTO user_profiles (usuario_id, perfiles, actualizado_en)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (usuario_id) DO UPDATE SET perfiles = EXCLUDED.perfiles, actualizado_en = NOW()`,
+      [user.id, JSON.stringify(perfiles)],
+    );
+
+    return res.json({ ok: true });
+  } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
   } finally {
     if (client) client.release();

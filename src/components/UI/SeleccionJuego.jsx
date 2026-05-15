@@ -502,6 +502,17 @@ export default function SeleccionJuego() {
       };
       setSesion(nuevaSesion);
       guardarSesionLocal(nuevaSesion);
+      // sincronizar perfil desde servidor
+      try {
+        const pRes = await fetch(`${API_BASE}/api/profile`, { headers: { Authorization: `Bearer ${nuevaSesion.token}` } });
+        const pData = await pRes.json();
+        if (pRes.ok && pData?.ok && pData.profile) {
+          setPerfiles((prev) => ({ ...(prev || {}), ...(pData.profile.perfiles || {}) }));
+          guardarPerfilesLocal(perfiles);
+        }
+      } catch (e) {
+        // noop
+      }
       setAuthModo("cuenta");
       setAuthAbierto(false);
     } catch {
@@ -629,6 +640,7 @@ export default function SeleccionJuego() {
     rachaDespues = calcularRachaDias(dailyDespues, hoy);
 
     try {
+      console.log('RECOMPENSA_REQUEST', { modoClave, dia, premio: premioOtorgado, usuario: sesion?.username });
       const res = await fetch(`${API_BASE}/api/coins/recompensa-diaria`, {
         method: "POST",
         headers: {
@@ -638,7 +650,13 @@ export default function SeleccionJuego() {
         body: JSON.stringify({ modoClave, dia: hoy, premio: premioOtorgado }),
       });
       const text = await res.text();
-      const data = text ? JSON.parse(text) : null;
+      let data = null;
+      try {
+        data = text ? JSON.parse(text) : null;
+      } catch (e) {
+        console.warn('No se pudo parsear respuesta de recompensa-diaria:', text);
+      }
+      console.log('RECOMPENSA_RESPONSE', { ok: res.ok, status: res.status, body: data });
       if (!res.ok || !data?.ok) {
         premioOtorgado = 0;
         lanzarToast(data?.error || "No se pudo guardar la recompensa");
@@ -665,7 +683,7 @@ export default function SeleccionJuego() {
         );
 
         if (!data.otorgado) {
-          premioOtorgado = 0;
+          premioOtorgado = Number(data.premio) || premioOtorgado;
           lanzarToast("Este modo ya se recompenso hoy");
         }
       }
@@ -728,25 +746,13 @@ export default function SeleccionJuego() {
     if (monedasActuales < avatar.precio) return lanzarToast('Monedas insuficientes');
 
     try {
-      const res = await fetch(`${API_BASE}/api/coins/spend`, {
+      const res = await fetch(`${API_BASE}/api/shop/comprar-avatar`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${sesion.token}`,
         },
-        body: JSON.stringify({
-          amount: avatar.precio,
-          reason: 'compra_avatar',
-          metadata: {
-            avatarId: avatar.id,
-            nombre: avatar.nombre,
-            imagenUrl: avatar.src,
-            src: avatar.src,
-            rareza: 'avatar',
-            saga: avatar.saga,
-            club: avatar.club,
-          },
-        }),
+        body: JSON.stringify({ avatarId: avatar.id, price: avatar.precio, nombre: avatar.nombre, imagenUrl: avatar.src }),
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
@@ -754,15 +760,21 @@ export default function SeleccionJuego() {
       }
 
       actualizarMonedasSesion(data.monedas);
+      // sincronizar inventario y perfil desde servidor
       void cargarInventarioCartas();
-    } catch {
+      try {
+        const pRes = await fetch(`${API_BASE}/api/profile`, { headers: { Authorization: `Bearer ${sesion.token}` } });
+        const pData = await pRes.json();
+        if (pRes.ok && pData?.ok && pData.profile) {
+          setPerfiles((prev) => ({ ...(prev || {}), ...(pData.profile.perfiles || {}) }));
+          guardarPerfilesLocal(perfiles);
+        }
+      } catch (e) {
+        // noop
+      }
+    } catch (e) {
       return lanzarToast('Error de red al comprar avatar');
     }
-
-    actualizarPerfilActual((base) => ({
-      ...base,
-      ownedAvatarIds: [...new Set([...(base.ownedAvatarIds || ["starter"]), avatar.id])],
-    }));
   };
 
   const cargarInventarioCartas = useCallback(async () => {

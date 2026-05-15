@@ -25,6 +25,12 @@ CREATE TABLE IF NOT EXISTS usuarios (
   ultimo_login TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS user_profiles (
+  usuario_id BIGINT PRIMARY KEY REFERENCES usuarios(id) ON DELETE CASCADE,
+  perfiles JSONB NOT NULL DEFAULT '{}'::jsonb,
+  actualizado_en TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS personajes (
   id BIGSERIAL PRIMARY KEY,
   nombre TEXT NOT NULL,
