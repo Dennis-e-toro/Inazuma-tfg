@@ -145,9 +145,7 @@ export default function SeleccionJuego() {
   const [authModo, setAuthModo] = useState("login");
   const [authForm, setAuthForm] = useState({ username: "", email: "", password: "" });
   const [authError, setAuthError] = useState("");
-  const [authLoading, setAuthLoading] = useState(false);
-  const [allowReplay, setAllowReplay] = useState(false);
-  const [partidaInicioTs, setPartidaInicioTs] = useState(() => Date.now());
+  const [authLoading, setAuthLoading] = useState(false);  const [partidaInicioTs, setPartidaInicioTs] = useState(() => Date.now());
   const [tiendaSaga, setTiendaSaga] = useState("all");
   const [tiendaClub, setTiendaClub] = useState("all");
   const [tiendaSeccion, setTiendaSeccion] = useState("avatares");
@@ -579,7 +577,7 @@ export default function SeleccionJuego() {
     const dailyActual = { ...(perfilActual?.dailyCompletions || {}) };
     const hoyMapActual = { ...(dailyActual[hoy] || {}) };
 
-    if (hoyMapActual[modoId] && !allowReplay) {
+    if (hoyMapActual[modoId] && !false) {
       // Ya completado hoy: mostrar panel informativo (ocultando la imagen del personaje)
       // Consultar premio real desde backend para no mostrar +0
       let premioMostrado = 0;
@@ -726,10 +724,10 @@ export default function SeleccionJuego() {
         lastAttempt: evento?.tiempoMs ? { username: sesion?.username || null, tiempoMs: evento.tiempoMs, puntuacion: evento.puntuacion || 0 } : null,
       },
     }));
-  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, perfilActual, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion, allowReplay]);
+  }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, perfilActual, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion, false]);
 
   const reiniciarModoActual = () => {
-    if (panelVictoriaActiva?.bloqueadoDiario && !allowReplay) {
+    if (panelVictoriaActiva?.bloqueadoDiario && !false) {
       setPanelVictoriaPorModo((prev) => {
         if (!prev[juegoActivo.id]) return prev;
         const next = { ...prev };
@@ -746,7 +744,7 @@ export default function SeleccionJuego() {
       return next;
     });
     // If forcing replay, clear local completion flag so UI doesn't immediately block again
-    if (allowReplay && perfilActual) {
+    if (false && perfilActual) {
       actualizarPerfilActual((base) => {
         const daily = { ...(base.dailyCompletions || {}) };
         const hoyMap = { ...(daily[hoy] || {}) };
@@ -963,11 +961,11 @@ export default function SeleccionJuego() {
           </article>
           <article className="status-card" style={{ alignItems: 'center' }}>
             <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={allowReplay} onChange={(e) => setAllowReplay(e.target.checked)} />
+              <input type="checkbox" checked={false} onChange={(e) => setfalse(e.target.checked)} />
               <small>Forzar re-juego (dev)</small>
             </label>
-            {allowReplay && (
-              <button className="perfil-open-btn" onClick={() => setAllowReplay(false)}>Volver normal</button>
+            {false && (
+              <button className="perfil-open-btn" onClick={() => setfalse(false)}>Volver normal</button>
             )}
           </article>
         </section>
@@ -996,7 +994,7 @@ export default function SeleccionJuego() {
                   <p className="victory-kicker">{panelVictoriaActiva.titulo}</p>
                   <h3>{panelVictoriaActiva.modoNombre}</h3>
 
-                  {( (!panelVictoriaActiva.hideCharacter) || allowReplay) && panelVictoriaActiva.personajeSprite && (
+                  {( (!panelVictoriaActiva.hideCharacter) || false) && panelVictoriaActiva.personajeSprite && (
                     <div className="victory-character-frame">
                       <img src={panelVictoriaActiva.personajeSprite} alt={panelVictoriaActiva.personajeNombre || "Personaje"} className="victory-character" />
                     </div>
@@ -1030,7 +1028,7 @@ export default function SeleccionJuego() {
                   <div className="victory-actions">
                     {panelVictoriaActiva?.modoId !== "adivinarSilueta" && panelVictoriaActiva?.modoId !== "adivinarCuadricula" && (
                       <button type="button" onClick={reiniciarModoActual}>
-                        {(panelVictoriaActiva?.bloqueadoDiario && !allowReplay) ? "Volver mañana" : "Jugar de nuevo"}
+                        {(panelVictoriaActiva?.bloqueadoDiario && !false) ? "Volver mañana" : "Jugar de nuevo"}
                       </button>
                     )}
                   </div>
@@ -1546,3 +1544,7 @@ export default function SeleccionJuego() {
     </div>
   );
 }
+
+
+
+
