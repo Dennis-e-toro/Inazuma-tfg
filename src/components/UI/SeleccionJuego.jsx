@@ -94,6 +94,14 @@ function normalizarImagenCarta(carta) {
   if (url.startsWith("http://") || url.startsWith("https://")) return url;
   // Asegurar que empiece con /
   if (!url.startsWith("/")) url = "/" + url;
+  // Evitar duplicar el BASE_URL si la URL ya la contiene (p. ej. '/Inazuma-tfg/...')
+  const baseUrl = import.meta.env.BASE_URL || "/";
+  const baseWithSlash = baseUrl.endsWith("/") ? baseUrl : baseUrl + "/";
+  if (baseWithSlash !== "/" && url.startsWith(baseWithSlash)) {
+    return url;
+  }
+  // En entornos con base '/', devolver como está para no modificar
+  if (baseWithSlash === "/") return url;
   return assetUrl(url);
 }
 
