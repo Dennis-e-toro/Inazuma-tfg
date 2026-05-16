@@ -321,6 +321,7 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
+  const [serverBloqueado, setServerBloqueado] = useState(false);
   const inicioRef = useRef(0);
   const resultadoNotificadoRef = useRef(false);
 
@@ -401,6 +402,21 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   useEffect(() => {
     setCargando(true);
     setErrorCarga("");
+
+    // Consultar estado en backend para saber si ya completó el diario
+    (async () => {
+      try {
+        const res = await fetch(`${API_BASE}/api/diarios/estado?modo=cuadricula`);
+        if (res.ok) {
+          const d = await res.json();
+          const completado = Boolean(d?.intento?.completado || d?.intento?.acertado || false);
+          setServerBloqueado(completado);
+          if (completado) setMensaje('Ya completaste la cuadricula diaria de hoy. Vuelve mañana.');
+        }
+      } catch (e) {
+        // noop
+      }
+    })();
 
     fetch(`${API_BASE}/api/personajes`)
       .then((res) => res.json())
@@ -618,7 +634,7 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   };
 
   const ganado = aciertos >= GRID_SIZE * GRID_SIZE;
-  const juegoBloqueado = bloqueadoDiario || ganado;
+  const juegoBloqueado = bloqueadoDiario || ganado || serverBloqueado;
 
   useEffect(() => {
     if (!ganado || resultadoNotificadoRef.current) return;
