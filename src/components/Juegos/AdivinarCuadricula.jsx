@@ -375,25 +375,24 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
         body: JSON.stringify(payload),
       });
 
+      const data = await (async () => {
+        try { return await res.json(); } catch { return null; }
+      })();
+
       if (!res.ok) {
         let detalle = `HTTP ${res.status}`;
-        try {
-          const data = await res.json();
-          if (data?.error) detalle = data.error;
-        } catch {
-          // noop
-        }
-        console.warn('Error guardando intento (cuadricula):', detalle);
+        if (data?.error) detalle = data.error;
+        console.warn('Error guardando intento (cuadricula):', detalle, { body: data });
         setMensaje(`No se pudo guardar el intento: ${detalle}`);
-        return;
+        return null;
       }
 
-      if (res.ok && completado && acertado) {
-        // cierre final persistido
-      }
+      // Devolver el intento persistido para que el llamador pueda esperar su guardado
+      return data?.intento || null;
     } catch (e) {
       console.warn('Error enviando intento al backend:', e);
       setMensaje('Error enviando el intento al servidor. Intenta de nuevo.');
+      return null;
     }
   };
 
@@ -639,25 +638,32 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   useEffect(() => {
     if (!ganado || resultadoNotificadoRef.current) return;
     resultadoNotificadoRef.current = true;
-    const adivinanzasFinales = Object.values(celdas)
-      .filter((celda) => celda?.personaje?.id)
-      .map((celda) => ({
-        personajeId: celda.personaje.id,
-        esCorrecta: true,
-      }));
+    (async () => {
+      const adivinanzasFinales = Object.values(celdas)
+        .filter((celda) => celda?.personaje?.id)
+        .map((celda) => ({
+          personajeId: celda.personaje.id,
+          esCorrecta: true,
+        }));
 
-    void guardarResultado({
-      adivinanzasFinales,
-      completado: true,
-      acertado: true,
-      intentosUsados: aciertos + fallos,
-    });
-    onDailyComplete?.({
-      modoId: "adivinarCuadricula",
-      victoriaTitulo: "VICTORIA",
-      victoriaMensaje: "Has completado la cuadricula 3x3.",
-      hideCharacter: true,
-    });
+      const intento = await guardarResultado({
+        adivinanzasFinales,
+        completado: true,
+        acertado: true,
+        intentosUsados: aciertos + fallos,
+      });
+
+      if (intento) {
+        setServerBloqueado(true);
+      }
+
+      onDailyComplete?.({
+        modoId: "adivinarCuadricula",
+        victoriaTitulo: "VICTORIA",
+        victoriaMensaje: "Has completado la cuadricula 3x3.",
+        hideCharacter: true,
+      });
+    })();
   }, [ganado, onDailyComplete, celdas]);
 
   if (cargando) {

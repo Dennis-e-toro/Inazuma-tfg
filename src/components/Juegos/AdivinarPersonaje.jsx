@@ -149,25 +149,23 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
         body: JSON.stringify(payload),
       });
 
+      const data = await (async () => {
+        try { return await res.json(); } catch { return null; }
+      })();
+
       if (!res.ok) {
         let detalle = `HTTP ${res.status}`;
-        try {
-          const data = await res.json();
-          if (data?.error) detalle = data.error;
-        } catch {
-          // noop
-        }
-        console.warn('Error guardando intento (normal):', detalle);
+        if (data?.error) detalle = data.error;
+        console.warn('Error guardando intento (normal):', detalle, { body: data });
         setMensajeIntento(`No se pudo guardar el intento: ${detalle}`);
-        return;
+        return null;
       }
 
-      if (res.ok && completado && acertado) {
-        // el cierre final ya se persistió; no hacemos nada extra
-      }
+      return data?.intento || null;
     } catch (e) {
       console.warn('Error enviando intento al backend:', e);
       setMensajeIntento('Error enviando el intento al servidor. Intenta de nuevo.');
+      return null;
     }
   };
 
@@ -348,15 +346,28 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
   useEffect(() => {
     if (!acertado || resultadoNotificadoRef.current) return;
     resultadoNotificadoRef.current = true;
-    const tiempoMs = Date.now() - inicioRef.current;
-    onDailyComplete?.({
-      modoId: "adivinarPersonaje",
-      personajeNombre: objetivo?.nombre || "",
-      personajeSprite: objetivo?.sprite_url || null,
-      tiempoMs,
-      intentosUsados: intentos.length,
-      puntuacion: calcularPuntuacion(intentos.length, 0, tiempoMs),
-    });
+    (async () => {
+      const tiempoMs = Date.now() - inicioRef.current;
+      const intento = await guardarResultado({
+        intentosGanadores: intentos,
+        objetivoDiario: objetivo,
+        completado: true,
+        acertado: true,
+      });
+
+      if (intento) {
+        // Si se guardó, avisar al padre y el padre gestionará la recompensa
+      }
+
+      onDailyComplete?.({
+        modoId: "adivinarPersonaje",
+        personajeNombre: objetivo?.nombre || "",
+        personajeSprite: objetivo?.sprite_url || null,
+        tiempoMs,
+        intentosUsados: intentos.length,
+        puntuacion: calcularPuntuacion(intentos.length, 0, tiempoMs),
+      });
+    })();
   }, [acertado, onDailyComplete, objetivo, intentos.length]);
 
   if (cargando) {

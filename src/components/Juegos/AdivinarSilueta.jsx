@@ -350,20 +350,26 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
         },
       ];
       setAdivinanzas(siguienteAdivinanzas);
-      void guardarResultado({
-        objetivoDiario: personajeActual,
-        adivinanzasFinales: siguienteAdivinanzas,
-        completado: true,
-        acertado: true,
-      });
-      if (!resultadoNotificadoRef.current) {
-        resultadoNotificadoRef.current = true;
-        onDailyComplete?.({
-          modoId: "adivinarSilueta",
-          personajeNombre: personajeActual.nombre || "",
-          personajeSprite: personajeActual.sprite_url || null,
+      (async () => {
+        const intento = await guardarResultado({
+          objetivoDiario: personajeActual,
+          adivinanzasFinales: siguienteAdivinanzas,
+          completado: true,
+          acertado: true,
         });
-      }
+
+        if (!resultadoNotificadoRef.current) {
+          resultadoNotificadoRef.current = true;
+          if (intento) {
+            setBloqueadoHoy(true);
+          }
+          onDailyComplete?.({
+            modoId: "adivinarSilueta",
+            personajeNombre: personajeActual.nombre || "",
+            personajeSprite: personajeActual.sprite_url || null,
+          });
+        }
+      })();
     } else {
       const intentoPersonaje = buscarPersonajePorIntento(personajes, valor);
       setFeedback("Incorrecto ❌ Sigue probando");
