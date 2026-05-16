@@ -653,9 +653,7 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
         <div className="acg-panel">
           <h2>Cuadricula 3x3</h2>
           <p className="acg-message">{errorCarga || "No hay tablero disponible."}</p>
-          <div className="acg-score">
-            <button onClick={nuevaCuadricula} disabled={!personajes.length}>Reintentar</button>
-          </div>
+          <div className="acg-score" />
         </div>
       </div>
     );
@@ -674,7 +672,6 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
         <div className="acg-score">
           <span>Aciertos: {aciertos}/9</span>
           <span>Fallos: {fallos}</span>
-          <button onClick={nuevaCuadricula} disabled={juegoBloqueado}>Nuevo tablero</button>
         </div>
 
         <div className="acg-grid" role="grid" aria-label="Cuadricula de adivinanza">
