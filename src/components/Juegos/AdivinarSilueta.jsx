@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import "./AdivinarSilueta.css";
 import { API_BASE } from "../../config";
 import { assetUrl } from "../../helpers/assetUrl";
+import { obtenerFechaMadrid } from "../../helpers/madridDate";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 
@@ -179,7 +180,7 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
 
   const sesion = cargarSesionLocal();
 
-  const hoyIso = new Date().toISOString().slice(0, 10);
+  const hoyIso = obtenerFechaMadrid();
 
   const guardarResultado = async ({ objetivoDiario, adivinanzasFinales, completado = false, acertado = false }) => {
     if (!objetivoDiario) return;

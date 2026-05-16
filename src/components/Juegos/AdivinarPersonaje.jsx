@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdivinarPersonaje.css";
 import { API_BASE } from "../../config";
 import { assetUrl } from "../../helpers/assetUrl";
+import { obtenerFechaMadrid } from "../../helpers/madridDate";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 
@@ -60,7 +61,7 @@ function claseComparacionBool(a, b) {
 
 function indiceDiario(total) {
   if (!Number.isFinite(total) || total <= 0) return 0;
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = obtenerFechaMadrid();
   let hash = 0;
   for (let i = 0; i < hoy.length; i += 1) {
     hash = (hash * 31 + hoy.charCodeAt(i)) % 2147483647;
@@ -107,7 +108,7 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
   const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();
-  const hoyIso = new Date().toISOString().slice(0, 10);
+  const hoyIso = obtenerFechaMadrid();
 
   const guardarResultado = async ({ intentosGanadores, objetivoDiario, completado = false, acertado = false }) => {
     if (!objetivoDiario) return;

@@ -6,6 +6,7 @@ import AdivinarSilueta from "../Juegos/AdivinarSilueta";
 import AdivinarCuadricula from "../Juegos/AdivinarCuadricula";
 import { API_BASE } from "../../config";
 import { assetUrl } from "../../helpers/assetUrl";
+import { obtenerFechaMadrid } from "../../helpers/madridDate";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 const AUTH_PROFILE_KEY = "inazudle.profile.v2";
@@ -164,7 +165,7 @@ export default function SeleccionJuego() {
   const [instanciaJuego, setInstanciaJuego] = useState(0);
   const toastTimerRef = useRef(null);
 
-  const hoy = new Date().toISOString().slice(0, 10);
+  const hoy = obtenerFechaMadrid();
 
   const juegos = useMemo(() => ([
     { id: "adivinarPersonaje", nombre: "Adivina Personaje", descripcion: "Modo clasico diario", componente: AdivinarPersonaje },

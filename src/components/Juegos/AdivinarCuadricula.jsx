@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import "./AdivinarCuadricula.css";
 import { API_BASE } from "../../config";
 import { assetUrl } from "../../helpers/assetUrl";
+import { obtenerFechaMadrid } from "../../helpers/madridDate";
 
 const AUTH_SESSION_KEY = "inazudle.auth.session.v1";
 const CUADRICULA_CACHE_KEY = "inazudle.daily.cuadricula.v1";
@@ -324,7 +325,7 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();
-  const hoyIso = new Date().toISOString().slice(0, 10);
+  const hoyIso = obtenerFechaMadrid();
   const semillaDiaria = `${hoyIso}:cuadricula`;
 
   const prepararTablero = (listaPersonajes) => {
