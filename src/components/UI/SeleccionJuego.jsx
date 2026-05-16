@@ -726,38 +726,7 @@ export default function SeleccionJuego() {
     }));
   }, [juegoSeleccionado, juegos, hoy, monedasActuales, partidaInicioTs, perfilActual, rankingClavePorModo, sesion?.token, sesion?.username, lanzarToast, actualizarMonedasSesion, false]);
 
-  const reiniciarModoActual = () => {
-    if (panelVictoriaActiva?.bloqueadoDiario && !false) {
-      setPanelVictoriaPorModo((prev) => {
-        if (!prev[juegoActivo.id]) return prev;
-        const next = { ...prev };
-        delete next[juegoActivo.id];
-        return next;
-      });
-      return;
-    }
-
-    setPanelVictoriaPorModo((prev) => {
-      if (!prev[juegoActivo.id]) return prev;
-      const next = { ...prev };
-      delete next[juegoActivo.id];
-      return next;
-    });
-    // If forcing replay, clear local completion flag so UI doesn't immediately block again
-    if (false && perfilActual) {
-      actualizarPerfilActual((base) => {
-        const daily = { ...(base.dailyCompletions || {}) };
-        const hoyMap = { ...(daily[hoy] || {}) };
-        if (hoyMap[juegoActivo.id]) {
-          delete hoyMap[juegoActivo.id];
-          daily[hoy] = Object.keys(hoyMap).length ? hoyMap : undefined;
-        }
-        return { ...base, dailyCompletions: daily };
-      });
-    }
-    setInstanciaJuego((prev) => prev + 1);
-    setPartidaInicioTs(Date.now());
-  };
+  
 
   const comprarAvatar = async (avatar) => {
     if (!perfilActual) return;
@@ -959,15 +928,7 @@ export default function SeleccionJuego() {
               </button>
             )}
           </article>
-          <article className="status-card" style={{ alignItems: 'center' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-              <input type="checkbox" checked={false} onChange={(e) => setfalse(e.target.checked)} />
-              <small>Forzar re-juego (dev)</small>
-            </label>
-            {false && (
-              <button className="perfil-open-btn" onClick={() => setfalse(false)}>Volver normal</button>
-            )}
-          </article>
+          
         </section>
 
         <section className="modos-strip" aria-label="Selector de modos">
@@ -1025,13 +986,7 @@ export default function SeleccionJuego() {
                     <p className="victory-total">Monedas totales: <strong>{panelVictoriaActiva.monedasTotales ?? 0}</strong></p>
                   )}
 
-                  <div className="victory-actions">
-                    {panelVictoriaActiva?.modoId !== "adivinarSilueta" && panelVictoriaActiva?.modoId !== "adivinarCuadricula" && (
-                      <button type="button" onClick={reiniciarModoActual}>
-                        {(panelVictoriaActiva?.bloqueadoDiario && !false) ? "Volver mañana" : "Jugar de nuevo"}
-                      </button>
-                    )}
-                  </div>
+                  <div className="victory-actions" />
                 </div>
 
                 <aside className="victory-ranking">
