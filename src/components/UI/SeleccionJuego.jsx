@@ -246,6 +246,21 @@ export default function SeleccionJuego() {
           };
           setSesion(refrescada);
           guardarSesionLocal(refrescada);
+          // Cargar perfil persistido desde el backend para sincronizar completados diarios
+          try {
+            const pRes = await fetch(`${API_BASE}/api/profile`, { headers: { Authorization: `Bearer ${refrescada.token}` } });
+            const pData = await pRes.json();
+            if (pRes.ok && pData?.ok && pData.profile) {
+              const serverPerfiles = pData.profile.perfiles || pData.profile || {};
+              setPerfiles((prev) => {
+                const next = { ...(prev || {}), [refrescada.username]: serverPerfiles };
+                try { guardarPerfilesLocal(next); } catch {};
+                return next;
+              });
+            }
+          } catch (e) {
+            // noop: si falla, mantener estado local
+          }
         }
       } catch {
         // offline tolerado
