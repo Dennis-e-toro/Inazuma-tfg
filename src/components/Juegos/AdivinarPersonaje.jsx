@@ -103,7 +103,7 @@ export default function AdivinarPersonaje({ onDailyComplete, bloqueadoDiario = f
   const [errorCarga, setErrorCarga] = useState("");
   const [mensajeIntento, setMensajeIntento] = useState("");
   const [bloqueadoHoy, setBloqueadoHoy] = useState(false);
-  const inicioRef = useRef(Date.now());
+  const inicioRef = useRef(0);
   const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();

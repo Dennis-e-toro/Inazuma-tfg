@@ -320,7 +320,7 @@ export default function AdivinarCuadricula({ onDailyComplete, bloqueadoDiario = 
   const [mensaje, setMensaje] = useState("");
   const [cargando, setCargando] = useState(true);
   const [errorCarga, setErrorCarga] = useState("");
-  const inicioRef = useRef(Date.now());
+  const inicioRef = useRef(0);
   const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();

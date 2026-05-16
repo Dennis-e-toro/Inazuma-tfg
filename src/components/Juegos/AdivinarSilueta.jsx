@@ -174,7 +174,7 @@ export default function AdivinarSilueta({ onDailyComplete, bloqueadoDiario = fal
   const [resuelto, setResuelto] = useState(false);
   const [adivinanzas, setAdivinanzas] = useState([]);
   const [bloqueadoHoy, setBloqueadoHoy] = useState(false);
-  const inicioRef = useRef(Date.now());
+  const inicioRef = useRef(0);
   const resultadoNotificadoRef = useRef(false);
 
   const sesion = cargarSesionLocal();

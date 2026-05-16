@@ -520,7 +520,9 @@ async function registrarIntentoDiario({
 
   try {
     console.log('[REGISTRAR_INTENTO] Insert/Update result:', intento ? { id: intento.id, usuario_id: intento.usuario_id, dia: intento.dia, puntuacion: intento.puntuacion } : null);
-  } catch (e) {}
+  } catch (e) {
+    // noop: si falla el logging, no interrumpe el flujo
+  }
 
   if (Array.isArray(adivinanzas) && adivinanzas.length > 0) {
     await pool.query(
@@ -544,7 +546,9 @@ async function registrarIntentoDiario({
     }
     try {
       console.log('[REGISTRAR_INTENTO] Adivinanzas registradas:', adivinanzas.length);
-    } catch (e) {}
+    } catch (e) {
+      // noop: fallos en logging no deben interrumpir flujo
+    }
   }
 
   return intento;
@@ -1364,7 +1368,9 @@ app.post("/api/diarios/intentos", async (req, res) => {
   try {
     try {
       console.log('[API] /api/diarios/intentos body:', JSON.stringify(req.body).slice(0, 2000));
-    } catch (e) {}
+    } catch (e) {
+      // noop: logging best-effort
+    }
     const user = await authDesdeToken(req);
     if (!user) {
       return res.status(401).json({ ok: false, error: "Sesion no valida" });
@@ -1404,7 +1410,9 @@ app.post("/api/diarios/intentos", async (req, res) => {
 
     try {
       console.log('[API] registrarIntentoDiario returned:', intento ? { id: intento.id, usuario_id: intento.usuario_id, dia: intento.dia } : null);
-    } catch (e) {}
+    } catch (e) {
+      // noop: logging best-effort
+    }
 
     return res.json({ ok: true, intento, persistido: true });
   } catch (error) {
