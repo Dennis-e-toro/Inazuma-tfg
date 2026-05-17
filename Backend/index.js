@@ -916,13 +916,6 @@ app.get('/api/profile', async (req, res) => {
     if (!user) return res.status(401).json({ ok: false, error: 'Sesion no valida' });
 
     const perfilesRow = await client.query('SELECT perfiles FROM user_profiles WHERE usuario_id = $1 LIMIT 1', [user.id]);
-    if (perfilesRow.rowCount > 0) {
-      const perfiles = perfilesRow.rows[0].perfiles || {};
-      const avatars = await client.query('SELECT item_key, nombre, imagen_url, cantidad FROM inventario WHERE usuario_id = $1 AND item_tipo = $2', [user.id, 'avatar']);
-      return res.json({ ok: true, profile: { perfiles, avatars: avatars.rows } });
-    }
-
-    // No existe perfil persistido: derivar uno ligero a partir de tablas existentes
     const rows = await client.query('SELECT dia, modo_clave FROM recompensas_diarias WHERE usuario_id = $1', [user.id]);
     const dailyCompletions = {};
     for (const r of rows.rows) {
@@ -932,16 +925,31 @@ app.get('/api/profile', async (req, res) => {
       dailyCompletions[dia][modo] = true;
     }
 
+    const perfilesGuardados = perfilesRow.rowCount > 0 ? (perfilesRow.rows[0].perfiles || {}) : {};
+    const perfiles = {
+      ...perfilesGuardados,
+      dailyCompletions: {
+        ...(perfilesGuardados.dailyCompletions || {}),
+        ...dailyCompletions,
+      },
+    };
+
+    if (Array.isArray(perfilesGuardados.ownedAvatarIds) || perfilesGuardados.equippedAvatarId) {
+      perfiles.ownedAvatarIds = Array.from(new Set([...(perfilesGuardados.ownedAvatarIds || [])]));
+      if (perfilesGuardados.equippedAvatarId) {
+        perfiles.equippedAvatarId = perfilesGuardados.equippedAvatarId;
+      }
+    }
+
     const inv = await client.query("SELECT item_key, nombre, imagen_url, cantidad FROM inventario WHERE usuario_id = $1 AND item_tipo = 'avatar'", [user.id]);
     const owned = inv.rows.map((r) => r.item_key);
 
-    const perfilesDerivados = {
-      equippedAvatarId: null,
-      ownedAvatarIds: owned,
-      dailyCompletions,
-    };
+    perfiles.ownedAvatarIds = Array.from(new Set([...(perfiles.ownedAvatarIds || []), ...owned]));
+    if (!perfiles.equippedAvatarId && perfiles.ownedAvatarIds.length > 0) {
+      perfiles.equippedAvatarId = perfiles.ownedAvatarIds[0];
+    }
 
-    return res.json({ ok: true, profile: { perfiles: perfilesDerivados, avatars: inv.rows, derived: true } });
+    return res.json({ ok: true, profile: { perfiles, avatars: inv.rows, derived: perfilesRow.rowCount === 0 } });
   } catch (error) {
     return res.status(500).json({ ok: false, error: error.message });
   } finally {
