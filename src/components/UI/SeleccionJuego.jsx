@@ -146,6 +146,7 @@ export default function SeleccionJuego() {
   const [authModo, setAuthModo] = useState("login");
   const [authForm, setAuthForm] = useState({ username: "", email: "", password: "" });
   
+  const [tiendaSaga, setTiendaSaga] = useState("all");
   const [tiendaClub, setTiendaClub] = useState("all");
   const [tiendaSeccion, setTiendaSeccion] = useState("avatares");
   const [inventarioSeccion, setInventarioSeccion] = useState("cartas");
