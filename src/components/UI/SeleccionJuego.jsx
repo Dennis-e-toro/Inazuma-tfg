@@ -752,6 +752,15 @@ export default function SeleccionJuego() {
     if (monedasActuales < avatar.precio) return lanzarToast('Monedas insuficientes');
 
     try {
+      // Optimistic update: marcar como comprado inmediatamente para evitar compras duplicadas
+      actualizarPerfilActual((base) => {
+        const owned = new Set(base.ownedAvatarIds || ["starter"]);
+        owned.add(avatar.id);
+        const next = { ...base, ownedAvatarIds: [...owned] };
+        try { guardarPerfilesLocal({ ...(perfiles || {}), [sesion.username]: next }); } catch {}
+        return next;
+      });
+
       const res = await fetch(`${API_BASE}/api/shop/comprar-avatar`, {
         method: 'POST',
         headers: {
@@ -762,6 +771,14 @@ export default function SeleccionJuego() {
       });
       const data = await res.json();
       if (!res.ok || !data?.ok) {
+        // Revertir optimistic update
+        actualizarPerfilActual((base) => {
+          const owned = new Set(base.ownedAvatarIds || []);
+          owned.delete(avatar.id);
+          const next = { ...base, ownedAvatarIds: [...owned] };
+          try { guardarPerfilesLocal({ ...(perfiles || {}), [sesion.username]: next }); } catch {}
+          return next;
+        });
         return lanzarToast(data?.error || 'No se pudo comprar el avatar');
       }
 
