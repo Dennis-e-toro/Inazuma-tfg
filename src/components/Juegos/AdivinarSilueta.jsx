@@ -112,6 +112,19 @@ function formatearEtiquetaClub(v) {
     .replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+function iconoSagaPorCodigo(saga) {
+  const code = textoNormalizado(saga);
+  const map = {
+    ie1: "/Saga/Ie1.webp",
+    ie2: "/Saga/IE2.webp",
+    ie3: "/Saga/IE3.webp",
+    iego: "/Saga/IE-GO.webp",
+    iego_chrono_storm: "/Saga/IE-GO-Chronostones.webp",
+    iego_galaxy: "/Saga/IE-GO-Galaxy.png",
+  };
+  return assetUrl(map[code] || "/Saga/Ie1.webp");
+}
+
 function fuentesSaga(personaje) {
   const saga = textoNormalizado(personaje?.saga);
   const mapa = {
@@ -124,9 +137,9 @@ function fuentesSaga(personaje) {
   };
 
   return unico([
-    normalizarRutaImagen(personaje?.icono_saga_url),
-    mapa[saga],
-    "/Saga/Ie1.webp",
+    normalizarRutaImagen(personaje?.icono_saga_url) || assetUrl(mapa[saga]),
+    assetUrl(mapa[saga]),
+    assetUrl("/Saga/Ie1.webp"),
   ]);
 }
 
