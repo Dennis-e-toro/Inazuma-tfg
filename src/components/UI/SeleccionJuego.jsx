@@ -157,6 +157,7 @@ export default function SeleccionJuego() {
   const [inventarioError, setInventarioError] = useState("");
   const [abrirSobreState, setAbrirSobreState] = useState({ abierto: false, sobre: null, cartas: [], animando: false });
   const [toastMonedas, setToastMonedas] = useState("");
+  const [pendingPurchases, setPendingPurchases] = useState([]);
   const [panelVictoriaPorModo, setPanelVictoriaPorModo] = useState({});
   const [rankingDiario, setRankingDiario] = useState([]);
   const [rankingCargando, setRankingCargando] = useState(false);
@@ -749,10 +750,12 @@ export default function SeleccionJuego() {
     if (!perfilActual) return;
     if (!sesion?.token) return lanzarToast('Necesitas iniciar sesión');
     if (perfilActual.ownedAvatarIds.includes(avatar.id)) return;
+    if (pendingPurchases.includes(avatar.id)) return;
     if (monedasActuales < avatar.precio) return lanzarToast('Monedas insuficientes');
 
     try {
-      // Optimistic update: marcar como comprado inmediatamente para evitar compras duplicadas
+      // Marcar compra pendiente y optimistic update para evitar compras duplicadas
+      setPendingPurchases((p) => [...p, avatar.id]);
       actualizarPerfilActual((base) => {
         const owned = new Set(base.ownedAvatarIds || ["starter"]);
         owned.add(avatar.id);
@@ -779,6 +782,7 @@ export default function SeleccionJuego() {
           try { guardarPerfilesLocal({ ...(perfiles || {}), [sesion.username]: next }); } catch {}
           return next;
         });
+        setPendingPurchases((p) => p.filter((id) => id !== avatar.id));
         return lanzarToast(data?.error || 'No se pudo comprar el avatar');
       }
 
@@ -798,6 +802,9 @@ export default function SeleccionJuego() {
       }
     } catch (e) {
       return lanzarToast('Error de red al comprar avatar');
+    }
+    finally {
+      setPendingPurchases((p) => p.filter((id) => id !== avatar.id));
     }
   };
 
@@ -1324,8 +1331,8 @@ export default function SeleccionJuego() {
                             <small>{avatar.saga.toUpperCase()} - {formatearClub(avatar.club)}</small>
 
                             {!comprado && (
-                              <button type="button" onClick={() => comprarAvatar(avatar)} disabled={!puedeComprar}>
-                                Comprar
+                              <button type="button" onClick={() => comprarAvatar(avatar)} disabled={!puedeComprar || pendingPurchases.includes(avatar.id)}>
+                                {pendingPurchases.includes(avatar.id) ? 'Comprando...' : 'Comprar'}
                               </button>
                             )}
                             {comprado && !equipado && (
