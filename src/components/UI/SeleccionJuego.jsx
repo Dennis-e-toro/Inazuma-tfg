@@ -793,9 +793,12 @@ export default function SeleccionJuego() {
         const pRes = await fetch(`${API_BASE}/api/profile`, { headers: { Authorization: `Bearer ${sesion.token}` } });
         const pData = await pRes.json();
         if (pRes.ok && pData?.ok && pData.profile) {
-          const next = { ...(perfiles || {}), ...(pData.profile.perfiles || {}) };
-          setPerfiles(next);
-          try { guardarPerfilesLocal(next); } catch {}
+          const serverPerfiles = pData.profile.perfiles || pData.profile || {};
+          setPerfiles((prev) => {
+            const next = { ...(prev || {}), [sesion.username]: serverPerfiles };
+            try { guardarPerfilesLocal(next); } catch {}
+            return next;
+          });
         }
       } catch (e) {
         // noop
