@@ -145,24 +145,7 @@ export default function SeleccionJuego() {
   const [authAbierto, setAuthAbierto] = useState(false);
   const [authModo, setAuthModo] = useState("login");
   const [authForm, setAuthForm] = useState({ username: "", email: "", password: "" });
-          bloqueadoDiario = true;
-          monedasDespues = Number(data.monedas) || 0;
-          actualizarMonedasSesion(monedasDespues);
-          // Si backend devolvió premio 0, intentar diagnosticar por qué
-          if (Number(data.premio || 0) <= 0) {
-            try {
-              const estadoRes = await fetch(`${API_BASE}/api/diarios/estado?modo=${modoClave}`);
-              const estadoData = estadoRes.ok ? await estadoRes.json() : null;
-              console.warn('Recompensa 0: estado diario backend:', estadoData);
-              if (estadoData?.intento) {
-                mensajePanel = "Parece que ya existe un intento guardado en el servidor (posible premio ya otorgado o problema en registro).";
-              } else {
-                mensajePanel = "Recompensa procesada pero el premio resultó ser 0. Revisa servidor.";
-              }
-            } catch (e) {
-              console.warn('Error diagnosticando recompensa 0:', e);
-            }
-          }
+  
   const [tiendaClub, setTiendaClub] = useState("all");
   const [tiendaSeccion, setTiendaSeccion] = useState("avatares");
   const [inventarioSeccion, setInventarioSeccion] = useState("cartas");
@@ -178,6 +161,7 @@ export default function SeleccionJuego() {
   const [rankingCargando, setRankingCargando] = useState(false);
   const [rankingError, setRankingError] = useState("");
   const [instanciaJuego, setInstanciaJuego] = useState(0);
+  const [partidaInicioTs, setPartidaInicioTs] = useState(Date.now());
   const toastTimerRef = useRef(null);
 
   const hoy = obtenerFechaMadrid();
@@ -531,8 +515,9 @@ export default function SeleccionJuego() {
         const pRes = await fetch(`${API_BASE}/api/profile`, { headers: { Authorization: `Bearer ${nuevaSesion.token}` } });
         const pData = await pRes.json();
         if (pRes.ok && pData?.ok && pData.profile) {
-          setPerfiles((prev) => ({ ...(prev || {}), ...(pData.profile.perfiles || {}) }));
-          guardarPerfilesLocal(perfiles);
+          const next = { ...(perfiles || {}), ...(pData.profile.perfiles || {}) };
+          setPerfiles(next);
+          try { guardarPerfilesLocal(next); } catch {}
         }
       } catch (e) {
         // noop
@@ -786,8 +771,9 @@ export default function SeleccionJuego() {
         const pRes = await fetch(`${API_BASE}/api/profile`, { headers: { Authorization: `Bearer ${sesion.token}` } });
         const pData = await pRes.json();
         if (pRes.ok && pData?.ok && pData.profile) {
-          setPerfiles((prev) => ({ ...(prev || {}), ...(pData.profile.perfiles || {}) }));
-          guardarPerfilesLocal(perfiles);
+          const next = { ...(perfiles || {}), ...(pData.profile.perfiles || {}) };
+          setPerfiles(next);
+          try { guardarPerfilesLocal(next); } catch {}
         }
       } catch (e) {
         // noop
