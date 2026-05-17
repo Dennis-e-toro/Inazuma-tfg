@@ -319,7 +319,7 @@ export default function SeleccionJuego() {
           ...lista,
         ]);
       } catch {
-        // mantener básico
+        
       }
     };
 
