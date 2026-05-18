@@ -597,7 +597,6 @@ export default function SeleccionJuego() {
 
     if (hoyMapActual[modoId] && !false) {
       // Ya completado hoy: mostrar panel informativo (ocultando la imagen del personaje)
-      // Consultar premio real desde backend para no mostrar +0
       let premioMostrado = 0;
       try {
         const resPrem = await fetch(`${API_BASE}/api/coins/recompensa-diaria?modoClave=${encodeURIComponent(modoClave)}&dia=${hoy}`, {
@@ -1317,7 +1316,57 @@ export default function SeleccionJuego() {
                     <div className="perfil-section-head">
                       <h4>Catálogo de avatares</h4>
                       <p>Compra y equipa avatares.</p>
-                    </div>
+                    </div>                    {/* Sección de la tienda: Avatares */}
+                    {tiendaSeccion === "avatares" && (
+                      <div className="perfil-section perfil-section-shop-grid">
+                        <div className="perfil-section-head">
+                          <h4>Catálogo de avatares</h4>
+                          <p>Compra y equipa avatares.</p>
+                        </div>
+                    
+                        <div className="avatar-grid">
+                          {avataresFiltrados.map((avatar) => {
+                            const comprado = !!perfilActual?.ownedAvatarIds?.includes(avatar.id); // si ya lo posee
+                            const equipado = perfilActual?.equippedAvatarId === avatar.id;       // si está equipado
+                            const puedeComprar = monedasActuales >= avatar.precio;              // si tiene monedas suficientes
+                    
+                            return (
+                              <div key={avatar.id} className="avatar-card">
+                                <div className="avatar-preview">
+                                  {/* Imagen del avatar (si existe) */}
+                                  {avatar.src ? <img src={avatar.src} alt={avatar.nombre} /> : <span>👤</span>}
+                                </div>
+                    
+                                <strong>{avatar.nombre}</strong>
+                    
+                                {/* Precio y metadata */}
+                                <small>{avatar.precio === 0 ? "Gratis" : `${avatar.precio} monedas`}</small>
+                                <small>{avatar.saga.toUpperCase()} - {formatearClub(avatar.club)}</small>
+                    
+                                {/* Botones / acciones según estado */}
+                                {!comprado && (
+                                  <button
+                                    type="button"
+                                    onClick={() => comprarAvatar(avatar)} // llama al handler que hace POST y actualiza estado
+                                    disabled={!puedeComprar || pendingPurchases.includes(avatar.id)} // bloqueo si sin monedas o ya en proceso
+                                  >
+                                    {pendingPurchases.includes(avatar.id) ? 'Comprando...' : 'Comprar'}
+                                  </button>
+                                )}
+                    
+                                {comprado && !equipado && (
+                                  <button type="button" onClick={() => equiparAvatar(avatar.id)}>
+                                    Equipar
+                                  </button>
+                                )}
+                    
+                                {equipado && <span className="avatar-equipped">Equipado</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
                     <div className="avatar-grid">
                       {avataresFiltrados.map((avatar) => {
                         const comprado = !!perfilActual?.ownedAvatarIds?.includes(avatar.id);
@@ -1362,7 +1411,57 @@ export default function SeleccionJuego() {
                         <div>No hay sobres disponibles.</div>
                       ) : (
                         sobresCatalogo.map((s) => (
-                          <div key={s.id} className="sobre-card">
+                          <div key={s.id} className="sobre-card">                          // Sección "Sobres" en la tienda (renderiza si `tiendaSeccion === "sobres"`)
+                          <div className="perfil-section perfil-section-shop-grid">
+                            <div className="perfil-section-head">
+                              <h4>Sobres</h4>
+                            </div>
+                          
+                            <div className="sobre-grid">
+                              {sobresCargando ? (
+                                // Estado cargando: mostramos texto de carga
+                                <div>Cargando sobres...</div>
+                              ) : sobresCatalogo.length === 0 ? (
+                                // Si no hay sobres en el catálogo, mostramos mensaje
+                                <div>No hay sobres disponibles.</div>
+                              ) : (
+                                // Si hay sobres, los mapeamos para renderizar tarjetas
+                                sobresCatalogo.map((s) => (
+                                  <div key={s.id} className="sobre-card">
+                                    <div className="sobre-preview">
+                                      {s.portada_src ? (
+                                        // Imagen de portada del sobre (si existe)
+                                        <img
+                                          src={s.portada_src}
+                                          alt={s.nombre}
+                                          className="sobre-img"
+                                          onError={(e) => {
+                                            // Si falla la carga de la imagen, la ocultamos para evitar errores visuales
+                                            e.currentTarget.style.display = 'none';
+                                          }}
+                                          onLoad={() => console.log(`✓ Portada loaded: ${s.nombre}`)}
+                                        />
+                                      ) : (
+                                        // Si no hay portada, mostramos un contenedor vacío accesible
+                                        <div className="sobre-no-portada" aria-hidden />
+                                      )}
+                                    </div>
+                          
+                                    {/* Nombre del sobre */}
+                                    <strong>{s.nombre}</strong>
+                          
+                                    {/* Precio (o "Gratis" si precio 0) */}
+                                    <small>{(s.precio_monedas || 0) === 0 ? 'Gratis' : `${s.precio_monedas || 0} monedas`}</small>
+                          
+                                    {/* Botón que llama a `comprarSobre(s)` para comprar/abrir */}
+                                    <button type="button" onClick={() => comprarSobre(s)}>
+                                      Comprar y abrir
+                                    </button>
+                                  </div>
+                                ))
+                              )}
+                            </div>
+                          </div>
                             <div className="sobre-preview">
                               {s.portada_src ? (
                                 <img
