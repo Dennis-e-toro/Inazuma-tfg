@@ -426,7 +426,7 @@ export default function SeleccionJuego() {
 
   // Asegura que exista un perfil local para el usuario autenticado
   useEffect(() => {
-    if (sesion?.username) return;
+    if (!sesion?.username) return;
     setPerfiles((prev) => {
       if (prev[sesion.username]) return prev;
       return {
